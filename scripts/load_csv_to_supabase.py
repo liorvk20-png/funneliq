@@ -7,9 +7,15 @@ Usage (from the repo root, with .env populated):
     python scripts/load_csv_to_supabase.py funnel_marketing_data.csv
 """
 import sys
+from pathlib import Path
 
 import pandas as pd
 from dotenv import load_dotenv
+
+# Running this as a script puts scripts/ on sys.path, not the repo root, so
+# `import app` would fail. Put the repo root first so the documented usage
+# above (`python scripts/load_csv_to_supabase.py ...`) works as written.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 load_dotenv()
 
@@ -26,7 +32,12 @@ def main(csv_path: str) -> None:
     # Cleaning/imputation decisions belong in Package 1's analysis, not here —
     # this script's job is a faithful load, not silent data repair.
 
-    records = df.where(pd.notnull(df), None).to_dict(orient="records")
+    # .astype(object) BEFORE .where() matters: on a float64 column pandas coerces
+    # None straight back to NaN, so the NaNs would survive and json.dumps would
+    # emit a bare `NaN` token — invalid JSON that PostgREST rejects. Casting to
+    # object dtype first lets the column actually hold None, which serialises to
+    # JSON null and lands in Postgres as SQL NULL.
+    records = df.astype(object).where(pd.notnull(df), None).to_dict(orient="records")
 
     client = get_service_client()  # service key: bypasses RLS, script-only
     client.table("funnel_records").delete().neq("id", 0).execute()  # clear previous load

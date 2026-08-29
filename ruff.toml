@@ -1,0 +1,10 @@
+# Lint config for CI (.github/workflows/ci.yml runs `ruff check app scripts`).
+line-length = 100
+
+[lint]
+# Ruff's default select omits E402 (module-level import not at top of file).
+# We enable it deliberately: both main.py and the loader script import *after*
+# load_dotenv() on purpose, and those lines carry `# noqa: E402`. With E402
+# disabled those directives would be dead, and a genuinely misplaced import
+# would slip through unflagged.
+select = ["E", "F", "I", "RUF"]

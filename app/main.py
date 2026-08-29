@@ -1,7 +1,14 @@
-from fastapi import FastAPI, Depends
+from dotenv import load_dotenv
 
-from app.auth import get_current_user_token
-from app.db import get_user_client
+# Populate the environment from .env before app.auth / app.db read it at import
+# time. On Railway there is no .env file and this is a harmless no-op — the
+# platform supplies the same variables directly.
+load_dotenv()
+
+from fastapi import Depends, FastAPI  # noqa: E402
+
+from app.auth import get_current_user_token  # noqa: E402
+from app.db import get_user_client  # noqa: E402
 
 app = FastAPI(title="FunnelIQ")
 
