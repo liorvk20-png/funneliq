@@ -1,9 +1,12 @@
 import os
-from supabase import create_client, Client
+
+from supabase import Client, create_client
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")  # script-only, not required at API runtime
+SUPABASE_PUBLISHABLE_KEY = os.environ["SUPABASE_PUBLISHABLE_KEY"]
+# Script-only. Deliberately not required at API runtime, so a misconfigured
+# deploy fails loudly rather than quietly falling back to an RLS-bypassing key.
+SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY")
 
 
 def get_user_client(access_token: str) -> Client:
@@ -12,16 +15,16 @@ def get_user_client(access_token: str) -> Client:
     JWT to Supabase, so Row Level Security enforces access at the database —
     not app code deciding who gets which rows.
     """
-    client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    client = create_client(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
     client.postgrest.auth(access_token)
     return client
 
 
 def get_service_client() -> Client:
     """
-    Service-role client. Bypasses RLS entirely. Used ONLY by server-side
-    scripts (the CSV loader) — never by request-handling code in main.py.
+    Secret-key client. Bypasses RLS entirely. Used ONLY by server-side scripts
+    (the CSV loader) — never by request-handling code in main.py.
     """
-    if not SUPABASE_SERVICE_KEY:
-        raise RuntimeError("SUPABASE_SERVICE_KEY not set — this client is for scripts only.")
-    return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    if not SUPABASE_SECRET_KEY:
+        raise RuntimeError("SUPABASE_SECRET_KEY not set — this client is for scripts only.")
+    return create_client(SUPABASE_URL, SUPABASE_SECRET_KEY)
