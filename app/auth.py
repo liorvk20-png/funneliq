@@ -1,10 +1,10 @@
-import os
-
 import jwt
 from fastapi import Header, HTTPException, status
 from jwt import PyJWKClient
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
+from app.config import require_env
+
+SUPABASE_URL = require_env("SUPABASE_URL")
 
 # Supabase signs access tokens with asymmetric keys (the default for new
 # projects) and publishes the public half here. There is no static JWT secret

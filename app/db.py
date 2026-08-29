@@ -2,8 +2,10 @@ import os
 
 from supabase import Client, create_client
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_PUBLISHABLE_KEY = os.environ["SUPABASE_PUBLISHABLE_KEY"]
+from app.config import require_env
+
+SUPABASE_URL = require_env("SUPABASE_URL")
+SUPABASE_PUBLISHABLE_KEY = require_env("SUPABASE_PUBLISHABLE_KEY")
 # Script-only. Deliberately not required at API runtime, so a misconfigured
 # deploy fails loudly rather than quietly falling back to an RLS-bypassing key.
 SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY")
