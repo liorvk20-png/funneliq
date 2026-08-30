@@ -10,7 +10,11 @@ from features import load_raw
 
 from app.predict import _tier
 
-SCHEMA = (Path(__file__).resolve().parent.parent / "schema.sql").read_text()
+# The schema moved into migrations/ when multi-tenancy arrived; the tier
+# definition lives in whichever migration last created the table, so both are
+# read and the assertions run against their concatenation.
+_ROOT = Path(__file__).resolve().parent.parent
+SCHEMA = "\n".join(p.read_text() for p in sorted((_ROOT / "migrations").glob("*.sql")))
 
 
 def test_schema_boundaries_are_what_the_code_assumes():
