@@ -5,3 +5,8 @@ python-dotenv==1.0.1
 pyjwt==2.13.0
 cryptography==43.0.1
 pandas==2.2.3
+# Inference only. All three winning models are CatBoost, so serving needs this
+# one library — xgboost, lightgbm and scikit-learn stay in requirements-ml.txt
+# where training uses them. This is the ~250MB the deploy now carries, and it
+# is the reason the build got slower.
+catboost==1.2.10

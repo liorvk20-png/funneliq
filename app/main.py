@@ -5,12 +5,13 @@ from dotenv import load_dotenv
 # platform supplies the same variables directly.
 load_dotenv()
 
-from fastapi import Depends, FastAPI  # noqa: E402
+from fastapi import Depends, FastAPI, HTTPException, status  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from app.auth import get_current_user_token  # noqa: E402
 from app.config import require_env  # noqa: E402
 from app.db import get_user_client  # noqa: E402
+from app.predict import predict  # noqa: E402
 
 app = FastAPI(title="FunnelIQ")
 
@@ -116,6 +117,58 @@ def summary(token: str = Depends(get_current_user_token)):
             "cumulativeProfit": sum(1 for r in rows if r["cumulative_profit"] is None),
         },
     }
+
+
+@app.get("/api/predict/{record_id}")
+def predict_record(record_id: int, token: str = Depends(get_current_user_token)):
+    """
+    Score one stored campaign with all three models.
+
+    The record is fetched through the user's own token, so a caller who cannot
+    read a row cannot get a prediction about it either — the gate is the same
+    one that guards the data, not a second one bolted on beside it.
+    """
+    client = get_user_client(token)
+    rows = client.table("funnel_records").select("*").eq("id", record_id).execute().data
+    if not rows:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such record")
+    record = rows[0]
+    return {
+        "id": record["id"],
+        "actual": {
+            "ltvMonths": record["ltv_months"],
+            "upsell": record["upsell"],
+            "referred": record["referred"],
+            "cumulativeProfit": record["cumulative_profit"],
+        },
+        "predicted": predict(record),
+    }
+
+
+@app.get("/api/budget-curve")
+def budget_curve(token: str = Depends(get_current_user_token)):
+    """
+    Package 6's return curve, computed from the stored data rather than hard
+    coded, so the page cannot drift away from the table it describes.
+    """
+    client = get_user_client(token)
+    rows = _fetch_all(client, "ad_budget,cumulative_profit")
+    by_budget: dict[int, list[float]] = {}
+    for r in rows:
+        if r["cumulative_profit"] is not None:
+            by_budget.setdefault(r["ad_budget"], []).append(r["cumulative_profit"])
+    out = []
+    for budget in sorted(by_budget):
+        profits = by_budget[budget]
+        avg = sum(profits) / len(profits)
+        out.append({
+            "budget": budget,
+            "campaigns": len(profits),
+            "avgProfit": round(avg),
+            "returnPerShekel": round(avg / budget, 2),
+            "tier": "Low" if budget <= 1500 else ("Mid" if budget <= 5000 else "High"),
+        })
+    return {"curve": out}
 
 
 # Mounted LAST on purpose: a mount at "/" catches every path the routes above
