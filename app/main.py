@@ -89,7 +89,7 @@ def insights(token: str = Depends(get_current_user_token)):
     """
     rows = _fetch_all(
         get_user_client(token),
-        "ad_budget,budget_tier,num_leads,leads_answered,ltv_months,cumulative_profit,"
+        "id,ad_budget,budget_tier,num_leads,leads_answered,ltv_months,cumulative_profit,"
         "purchased,upsell,referred,closed,not_closed,calls_to_closed,calls_to_not_closed,"
         "followup_1,followup_2,followup_3,followup_4,followup_5",
     )
@@ -97,6 +97,13 @@ def insights(token: str = Depends(get_current_user_token)):
         "summary": _summary(rows),
         "budget": _budget(rows),
         "followup": _followup(rows),
+        # Every campaign, not a sample. The picker used to be wired to the
+        # ten-row endpoint built on day one to prove the database connection,
+        # which quietly limited scoring to 0.3% of the data — and to the ten
+        # lowest ids, so all of them were small. Four fields per row keeps the
+        # whole index under a few hundred KB, and it costs no extra scan.
+        "records": [{"id": r["id"], "budget": r["ad_budget"], "tier": r["budget_tier"],
+                     "leads": r["num_leads"], "closed": r["closed"]} for r in rows],
     }
 
 
@@ -155,7 +162,11 @@ def _budget(rows) -> dict:
             "tier": "Low" if budget <= 1500 else ("Mid" if budget <= 5000 else "High"),
         })
 
-    pot = 1_000_000
+    # The pot is what the agency actually spent across every campaign in the
+    # book. An invented round number made the totals look like a forecast about
+    # real money when they were a hypothetical; this makes the comparison a
+    # genuine "same money, spent differently".
+    pot = sum(r["ad_budget"] for r in rows)
     strategies = [{
         "label": f"All at {c['budget']:,}",
         "budgetEach": c["budget"],
@@ -167,16 +178,16 @@ def _budget(rows) -> dict:
 
     # The comparison point is the agency's existing spending mix, not a
     # strawman: each level weighted by the share of total spend it holds today.
-    spend_total = sum(r["ad_budget"] for r in rows)
     weights = {c["budget"]: 0.0 for c in curve}
     for r in rows:
         if r["ad_budget"] in weights:
-            weights[r["ad_budget"]] += r["ad_budget"] / spend_total
+            weights[r["ad_budget"]] += r["ad_budget"] / pot
     current = sum(s["expectedProfit"] * weights[s["budgetEach"]] for s in strategies)
 
     best = max(strategies, key=lambda s: s["expectedProfit"])
     return {
         "pot": pot,
+        "potSource": "total ad spend across all campaigns in the dataset",
         "curve": curve,
         "strategies": sorted(strategies, key=lambda s: -s["expectedProfit"]),
         "current": {"expectedProfit": round(current),
@@ -201,6 +212,9 @@ def _followup(rows) -> dict:
                "count": sum(r[col] for r in rows),
                "pctOfLeads": round(100 * sum(r[col] for r in rows) / top, 1)}
               for label, col in stages]
+    # These are sums over every campaign, not one campaign's figures. Saying so
+    # in the payload keeps the dashboard from having to remember it.
+    campaigns = len(rows)
 
     closed = [r for r in rows if r["closed"] > 0 and r["cumulative_profit"] is not None]
     by_calls: dict[int, list[dict]] = {}
@@ -244,6 +258,7 @@ def _followup(rows) -> dict:
     wasted = sum(r["calls_to_not_closed"] * r["not_closed"] for r in rows)
 
     return {
+        "campaigns": campaigns,
         "funnel": funnel,
         "unanswered": funnel[0]["count"] - funnel[1]["count"],
         "unansweredPct": round(100 - funnel[1]["pctOfLeads"], 1),

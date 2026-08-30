@@ -14,7 +14,11 @@ answers a person can act on, served as a login-gated web app.
 | 3 | Who will buy an upsell? | CatBoost, **0.818 recall**, 0.680 PR-AUC |
 | 4 | Who is worth chasing? | Calibrated 0–100 score, 9.3% → 73.3% referral rate across bands |
 | 5 | Do follow-up calls destroy value? | The "it's just bad leads" explanation **fails its own test** |
-| 6 | Where should the budget go? | Return peaks at 10.87x and falls below 1.00x above 6,000 |
+| 6 | Where should the budget go? | Return peaks at **10.87x** and falls below 1.00x above 6,000 |
+
+The budget simulator compares strategies over the agency's **actual** total ad
+spend of 16,293,700, not an invented round number, so "299% more" means the same
+money spent differently. The ratio is the finding; it holds at any budget size.
 
 Full numbers, decisions and caveats: [FINDINGS.md](FINDINGS.md).
 
