@@ -74,30 +74,40 @@ def _fetch_all(client, columns: str, page: int = 1000) -> list[dict]:
         start += page
 
 
-@app.get("/api/summary")
-def summary(token: str = Depends(get_current_user_token)):
+@app.get("/api/insights")
+def insights(token: str = Depends(get_current_user_token)):
     """
-    Headline figures for the dashboard. Read through the user's own token, so
-    an unauthorised caller gets nothing here for the same reason they get
-    nothing from the sample endpoint — RLS, not application logic.
+    Everything the dashboard needs, from one pass over the table.
 
-    Aggregated in Python rather than SQL: 3,500 rows is small, and keeping the
-    arithmetic here means the numbers on the dashboard come from the same
-    place the analysis packages will read, with no second definition of a
-    metric to drift out of sync.
+    Previously the page made three separate calls that each read all 3,500 rows.
+    The aggregates all derive from the same scan, so doing it once is both
+    faster and impossible to make inconsistent — two panels can no longer
+    disagree because they read the table a second apart.
+
+    Read through the user's own token, so RLS governs this the same way it
+    governs the raw rows.
     """
-    client = get_user_client(token)
     rows = _fetch_all(
-        client,
-        "ad_budget,budget_tier,ltv_months,cumulative_profit,purchased,upsell,referred",
+        get_user_client(token),
+        "ad_budget,budget_tier,num_leads,leads_answered,ltv_months,cumulative_profit,"
+        "purchased,upsell,referred,closed,not_closed,calls_to_closed,calls_to_not_closed,"
+        "followup_1,followup_2,followup_3,followup_4,followup_5",
     )
+    return {
+        "summary": _summary(rows),
+        "budget": _budget(rows),
+        "followup": _followup(rows),
+    }
 
-    def mean(values):
-        vals = [v for v in values if v is not None]
-        return round(sum(vals) / len(vals), 1) if vals else None
 
+def _mean(values):
+    vals = [v for v in values if v is not None]
+    return round(sum(vals) / len(vals), 1) if vals else None
+
+
+def _summary(rows) -> dict:
     total = len(rows)
-    tiers = {}
+    tiers: dict[str, int] = {}
     for r in rows:
         tiers[r["budget_tier"]] = tiers.get(r["budget_tier"], 0) + 1
 
@@ -106,8 +116,8 @@ def summary(token: str = Depends(get_current_user_token)):
 
     return {
         "total": total,
-        "avgLtvMonths": mean(r["ltv_months"] for r in rows),
-        "avgProfit": mean(r["cumulative_profit"] for r in rows),
+        "avgLtvMonths": _mean(r["ltv_months"] for r in rows),
+        "avgProfit": _mean(r["cumulative_profit"] for r in rows),
         "purchaseRate": rate("purchased"),
         "upsellRate": rate("upsell"),
         "referralRate": rate("referred"),
@@ -116,6 +126,133 @@ def summary(token: str = Depends(get_current_user_token)):
             "ltvMonths": sum(1 for r in rows if r["ltv_months"] is None),
             "cumulativeProfit": sum(1 for r in rows if r["cumulative_profit"] is None),
         },
+    }
+
+
+def _budget(rows) -> dict:
+    """
+    Package 6: the observed return at each budget level, plus what a fixed pot
+    would earn spent entirely at one level.
+
+    The strategies use observed averages rather than a model on purpose. At the
+    moment a budget is set, none of the funnel columns exist yet — a model
+    reading them would answer a question no planner can ask.
+    """
+    by_budget: dict[int, list[float]] = {}
+    for r in rows:
+        if r["cumulative_profit"] is not None:
+            by_budget.setdefault(r["ad_budget"], []).append(r["cumulative_profit"])
+
+    curve = []
+    for budget in sorted(by_budget):
+        profits = by_budget[budget]
+        avg = sum(profits) / len(profits)
+        curve.append({
+            "budget": budget,
+            "campaigns": len(profits),
+            "avgProfit": round(avg),
+            "returnPerShekel": round(avg / budget, 2),
+            "tier": "Low" if budget <= 1500 else ("Mid" if budget <= 5000 else "High"),
+        })
+
+    pot = 1_000_000
+    strategies = [{
+        "label": f"All at {c['budget']:,}",
+        "budgetEach": c["budget"],
+        "campaigns": pot // c["budget"],
+        "expectedProfit": round((pot // c["budget"]) * c["avgProfit"]),
+        "returnPerShekel": c["returnPerShekel"],
+        "tier": c["tier"],
+    } for c in curve]
+
+    # The comparison point is the agency's existing spending mix, not a
+    # strawman: each level weighted by the share of total spend it holds today.
+    spend_total = sum(r["ad_budget"] for r in rows)
+    weights = {c["budget"]: 0.0 for c in curve}
+    for r in rows:
+        if r["ad_budget"] in weights:
+            weights[r["ad_budget"]] += r["ad_budget"] / spend_total
+    current = sum(s["expectedProfit"] * weights[s["budgetEach"]] for s in strategies)
+
+    best = max(strategies, key=lambda s: s["expectedProfit"])
+    return {
+        "pot": pot,
+        "curve": curve,
+        "strategies": sorted(strategies, key=lambda s: -s["expectedProfit"]),
+        "current": {"expectedProfit": round(current),
+                    "returnPerShekel": round(current / pot, 2)},
+        "best": best,
+        "gainPct": round((best["expectedProfit"] - current) / current * 100),
+    }
+
+
+def _followup(rows) -> dict:
+    """
+    Package 5: the follow-up paradox, including the test that failed to explain
+    it away. Both are returned — the raw pattern alone reads as "stop calling",
+    which is the conclusion the quality-controlled figures rule out.
+    """
+    stages = [("Leads", "num_leads"), ("Answered", "leads_answered"),
+              ("Follow-up 1", "followup_1"), ("Follow-up 2", "followup_2"),
+              ("Follow-up 3", "followup_3"), ("Follow-up 4", "followup_4"),
+              ("Follow-up 5", "followup_5"), ("Closed", "closed")]
+    top = sum(r["num_leads"] for r in rows) or 1
+    funnel = [{"stage": label,
+               "count": sum(r[col] for r in rows),
+               "pctOfLeads": round(100 * sum(r[col] for r in rows) / top, 1)}
+              for label, col in stages]
+
+    closed = [r for r in rows if r["closed"] > 0 and r["cumulative_profit"] is not None]
+    by_calls: dict[int, list[dict]] = {}
+    for r in closed:
+        by_calls.setdefault(r["calls_to_closed"], []).append(r)
+    calls = [{
+        "calls": c,
+        "campaigns": len(g),
+        "avgProfit": round(sum(r["cumulative_profit"] for r in g) / len(g)),
+        "avgLtv": _mean(r["ltv_months"] for r in g),
+        "upsellRate": round(100 * sum(1 for r in g if r["upsell"]) / len(g), 1),
+    } for c, g in sorted(by_calls.items()) if len(g) >= 10]
+
+    # Answer rate is fixed before any follow-up policy applies, so it separates
+    # "these were worse leads" from "the calls did it".
+    graded = sorted(closed, key=lambda r: r["leads_answered"] / max(r["num_leads"], 1))
+    q = len(graded) // 4
+    bands = [("Worst 25%", graded[:q]), ("Low-mid", graded[q:2 * q]),
+             ("High-mid", graded[2 * q:3 * q]), ("Best 25%", graded[3 * q:])]
+
+    def avg_profit(group):
+        return round(sum(r["cumulative_profit"] for r in group) / len(group)) if group else None
+
+    quality = []
+    ratios = []
+    for name, group in bands:
+        fast = [r for r in group if r["calls_to_closed"] <= 2]
+        mid = [r for r in group if 3 <= r["calls_to_closed"] <= 4]
+        slow = [r for r in group if r["calls_to_closed"] >= 5]
+        quality.append({"band": name, "fast": avg_profit(fast),
+                        "medium": avg_profit(mid), "slow": avg_profit(slow)})
+        if fast and slow:
+            ratios.append(avg_profit(fast) / avg_profit(slow))
+
+    all_fast = [r for r in closed if r["calls_to_closed"] <= 2]
+    all_slow = [r for r in closed if r["calls_to_closed"] >= 5]
+    gap_raw = avg_profit(all_fast) / avg_profit(all_slow)
+    gap_within = sum(ratios) / len(ratios)
+
+    productive = sum(r["calls_to_closed"] * r["closed"] for r in rows)
+    wasted = sum(r["calls_to_not_closed"] * r["not_closed"] for r in rows)
+
+    return {
+        "funnel": funnel,
+        "unanswered": funnel[0]["count"] - funnel[1]["count"],
+        "unansweredPct": round(100 - funnel[1]["pctOfLeads"], 1),
+        "byCalls": calls,
+        "byQuality": quality,
+        "gapRaw": round(gap_raw, 1),
+        "gapWithinQuality": round(gap_within, 1),
+        "explainedByQualityPct": round((1 - gap_within / gap_raw) * 100),
+        "wastedCallShare": round(100 * wasted / (wasted + productive), 1),
     }
 
 
@@ -143,32 +280,6 @@ def predict_record(record_id: int, token: str = Depends(get_current_user_token))
         },
         "predicted": predict(record),
     }
-
-
-@app.get("/api/budget-curve")
-def budget_curve(token: str = Depends(get_current_user_token)):
-    """
-    Package 6's return curve, computed from the stored data rather than hard
-    coded, so the page cannot drift away from the table it describes.
-    """
-    client = get_user_client(token)
-    rows = _fetch_all(client, "ad_budget,cumulative_profit")
-    by_budget: dict[int, list[float]] = {}
-    for r in rows:
-        if r["cumulative_profit"] is not None:
-            by_budget.setdefault(r["ad_budget"], []).append(r["cumulative_profit"])
-    out = []
-    for budget in sorted(by_budget):
-        profits = by_budget[budget]
-        avg = sum(profits) / len(profits)
-        out.append({
-            "budget": budget,
-            "campaigns": len(profits),
-            "avgProfit": round(avg),
-            "returnPerShekel": round(avg / budget, 2),
-            "tier": "Low" if budget <= 1500 else ("Mid" if budget <= 5000 else "High"),
-        })
-    return {"curve": out}
 
 
 # Mounted LAST on purpose: a mount at "/" catches every path the routes above

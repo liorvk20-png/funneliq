@@ -15,4 +15,4 @@ jobs:
       - name: Lint
         run: |
           pip install ruff
-          ruff check app scripts
+          ruff check app scripts analysis
