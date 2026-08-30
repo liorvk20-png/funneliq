@@ -30,7 +30,13 @@ def load_raw() -> pd.DataFrame:
     return df
 
 
-def features(df: pd.DataFrame, target: str, *, drop: list[str] | None = None) -> pd.DataFrame:
+def features(
+    df: pd.DataFrame,
+    target: str,
+    *,
+    drop: list[str] | None = None,
+    tier_as_category: bool = False,
+) -> pd.DataFrame:
     """
     Every column except the four outcomes, so the rule holds whichever outcome
     is being predicted. `drop` removes further columns for a specific
@@ -44,15 +50,25 @@ def features(df: pd.DataFrame, target: str, *, drop: list[str] | None = None) ->
     if target not in OUTCOMES:
         raise ValueError(f"{target} is not one of the four outcomes: {OUTCOMES}")
     X = df.drop(columns=OUTCOMES + (drop or []))
-    X["budget_tier"] = X["budget_tier"].cat.codes
+    # CatBoost can split on a genuine category rather than on an integer it has
+    # to pretend is ordered; the other two libraries need the ordinal form.
+    tier = X["budget_tier"]
+    X["budget_tier"] = tier.astype(str) if tier_as_category else tier.cat.codes
     return X
 
 
-def target_frame(df: pd.DataFrame, target: str, *, drop: list[str] | None = None):
+def target_frame(
+    df: pd.DataFrame,
+    target: str,
+    *,
+    drop: list[str] | None = None,
+    tier_as_category: bool = False,
+):
     """
     X, y with rows whose target is missing removed — and only those. A row with
     a missing *feature* stays: the gradient-boosting models all handle that
     natively, and dropping it would throw away a usable example.
     """
     usable = df[df[target].notna()]
-    return features(usable, target, drop=drop), usable[target].astype(float)
+    X = features(usable, target, drop=drop, tier_as_category=tier_as_category)
+    return X, usable[target].astype(float)

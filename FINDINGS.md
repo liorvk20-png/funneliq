@@ -255,6 +255,96 @@ independent analyses have now surfaced it.
 
 **Shipped:** `models/upsell.cbm`, CatBoost, no resampling, trained on all 3,500 rows.
 
+## Package 4 — the super-customer score
+
+Predicts `referred` (38.7% positive, 1.58:1) and converts the probability into a
+0–100 ranking. CatBoost with tuned hyperparameters and `budget_tier` as a real
+category, all three as the brief specifies.
+
+### budget_tier as a category
+
+| encoding | PR-AUC |
+|----------|--------|
+| real category | 0.6685 |
+| integer 0/1/2 | 0.6595 |
+
++0.0089 for the categorical form. The margin is small and expected to be:
+`budget_tier` is a deterministic function of `ad_budget`, which is already a
+feature, so a tree can recover the tier either way. It is used because Low/Mid/
+High is a label rather than a quantity, and encoding it as 0/1/2 invites the
+model to treat the gap Low→Mid as equal to Mid→High, which is meaningless.
+
+### Hyperparameter tuning — honest result
+
+18 combinations over depth, learning rate and L2, each scored by 5-fold PR-AUC.
+
+| depth | lr | l2 | PR-AUC | ROC-AUC |
+|-------|-----|-----|--------|---------|
+| **6** | **0.03** | **1.0** | **0.6699** | 0.8179 |
+| 4 | 0.03 | 5.0 | 0.6646 | 0.8200 |
+| 6 | 0.06 | 5.0 | 0.6645 | 0.8135 |
+
+Best is depth 6, lr 0.03, l2 1.0 — but the untuned starting point already scored
+0.6685, so **tuning bought +0.0014**. The spread across all 18 combinations is
+only 0.0225.
+
+Worth stating plainly rather than presenting the search as a win: on this
+dataset CatBoost is close to its best out of the box, and the tuning result is
+mainly evidence that the earlier numbers were not a lucky parameter draw.
+
+### Is the probability honest?
+
+Package 3 refused class weighting specifically to protect calibration here, so
+the promise gets checked:
+
+| predicted band | customers | avg predicted | actual rate | gap |
+|----------------|-----------|---------------|-------------|-----|
+| 0.0 – 0.2 | 1,473 | 0.074 | 0.094 | +0.020 |
+| 0.2 – 0.4 | 304 | 0.296 | 0.296 | 0.000 |
+| 0.4 – 0.6 | 332 | 0.515 | 0.524 | +0.010 |
+| 0.6 – 0.8 | 1,278 | 0.691 | 0.678 | −0.014 |
+| 0.8 – 1.0 | 113 | 0.838 | 0.761 | **−0.077** |
+
+Brier score 0.1628 (0 perfect, 0.25 a coin flip). Four of five bands agree with
+reality to within 0.02 — the probabilities mean what they say, and the Package 3
+decision paid off.
+
+**The exception is the top band**, where the model claims 0.838 and delivers
+0.761. It is overconfident about exactly the customers it is most confident
+about, on only 113 people. Anyone acting on scores above 80 should treat them as
+"very likely" rather than as the stated number.
+
+### The 0–100 score
+
+| band | customers | referred | actual rate | lift vs average |
+|------|-----------|----------|-------------|-----------------|
+| 0–19 | 1,461 | 136 | 9.3% | 0.24x |
+| 20–39 | 307 | 90 | 29.3% | 0.76x |
+| 40–59 | 326 | 165 | 50.6% | 1.31x |
+| 60–79 | 1,275 | 867 | 68.0% | 1.76x |
+| 80–100 | 131 | 96 | 73.3% | 1.89x |
+
+The rate climbs at every step, which is the property that makes the score usable:
+a team working it top-down meets better prospects the whole way, with no band
+that rewards skipping.
+
+**Calibrate expectations on the size of the effect.** Top band refers at 1.9x the
+average, not 10x. The score's real value is at the bottom: the 0–19 band holds
+1,461 customers — 42% of the book — who refer at 9.3%. Knowing who *not* to
+chase is the larger win here.
+
+### Top drivers
+
+| feature | share |
+|---------|-------|
+| purchased | 25.1% |
+| calls_to_closed | 18.7% |
+| num_leads | 6.5% |
+
+`calls_to_closed` places in the top two for the third model running.
+
+**Shipped:** `models/super_customer.cbm`, CatBoost depth 6 / lr 0.03 / l2 1.0.
+
 ## Open questions for later packages
 
 - Does the Mid-tier advantage survive controlling for lead volume, or is
