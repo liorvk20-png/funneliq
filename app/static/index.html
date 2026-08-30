@@ -187,6 +187,30 @@ tr.good td{background:var(--good-soft)} tr.bad td{background:var(--bad-soft)}
 .pred .actual{font-size:12.5px;color:var(--muted);margin-top:4px}
 
 .loading{color:var(--muted);padding:30px 0}
+
+/* --------------------------------------------------------------- uploads */
+.btnlink{display:inline-block;background:var(--brand);color:#fff;text-decoration:none;
+         padding:11px 22px;border-radius:var(--r-sm);font-weight:700}
+.btnlink:hover{background:var(--brand-ink)}
+.drop{
+  border:2px dashed var(--line-strong);border-radius:var(--r);background:var(--surface-2);
+  padding:30px 20px;text-align:center;cursor:pointer;
+}
+.drop.over{border-color:var(--brand);background:var(--brand-soft)}
+.drop .big{font-size:32px}
+.drop .name{font-weight:700;margin-top:8px}
+.report{margin-top:20px}
+.report ul{margin:8px 0 0;padding-inline-start:20px;line-height:1.9}
+.box{border-radius:var(--r-sm);padding:14px 16px;margin-top:14px;font-size:14px}
+.box.err{background:var(--bad-soft);border:1px solid #f4c3ca;color:#8d1f2d}
+.box.warn{background:var(--warn-soft);border:1px solid #f3ddb4;color:#6c4300}
+.box.ok{background:var(--good-soft);border:1px solid #bfe4d2;color:#0a5c39}
+.box h3{margin-bottom:4px}
+.row-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+.row-actions button{width:auto;margin:0;padding:11px 22px}
+button.ghost{background:var(--surface);color:var(--bad);border:1px solid var(--line-strong);
+             border-radius:var(--r-sm);font:inherit;font-weight:600;cursor:pointer;padding:7px 14px}
+button.ghost:hover{background:var(--bad-soft);border-color:#f4c3ca}
 </style>
 </head>
 <body>
@@ -236,6 +260,7 @@ tr.good td{background:var(--good-soft)} tr.bad td{background:var(--bad-soft)}
         <li><a href="#/predict" data-page="predict"><span class="ico" aria-hidden="true">🎯</span>תחזיות</a></li>
         <li><a href="#/funnel"  data-page="funnel"><span class="ico" aria-hidden="true">🔻</span>משפך המכירות</a></li>
         <li><a href="#/budget"  data-page="budget"><span class="ico" aria-hidden="true">💰</span>תקציב</a></li>
+        <li><a href="#/upload"  data-page="upload"><span class="ico" aria-hidden="true">⬆️</span>העלאת נתונים</a></li>
         <li><a href="#/profile" data-page="profile"><span class="ico" aria-hidden="true">👤</span>פרופיל</a></li>
       </ul>
     </nav>
@@ -335,8 +360,8 @@ const emptyState = (what) => `
     <div class="big" aria-hidden="true">📂</div>
     <h2>אין עדיין נתונים ${what ? "ל" + what : ""}</h2>
     <p>סביבת העבודה של החברה שלך ריקה. ברגע שתעלה קובץ קמפיינים ראשון,
-       המערכת תאמן עליו מודלים ותמלא את כל העמודים האלה.</p>
-    <p class="note">העלאה עצמאית של קבצים נמצאת בפיתוח. בינתיים אפשר לפנות אלינו כדי לטעון את הנתונים הראשונים.</p>
+       המערכת תנתח אותו ותמלא את כל העמודים האלה.</p>
+    <p style="margin-top:20px"><a class="btnlink" href="#/upload">להעלאת הקובץ הראשון ←</a></p>
   </div>`;
 
 /* --------------------------------------------------------------- widgets */
@@ -474,6 +499,9 @@ PAGES.predict = () => {
           <option value="budget">התקציב הגבוה ביותר</option>
         </select></div>
     </div>
+    <div class="caveat" style="margin-bottom:18px">המודלים כרגע מאומנים על מאגר
+      התייחסות משותף, לא על הנתונים של החברה שלך. הם נותנים כיוון סביר,
+      אבל אימון ייעודי לנתונים שלך הוא השלב הבא ויהיה מדויק יותר.</div>
     <label for="recSel">קמפיין</label>
     <select id="recSel"></select>
     <p class="note" id="recCount"></p>
@@ -597,6 +625,305 @@ PAGES.budget = () => {
   return head + curveCard + stratCard;
 };
 
+PAGES.upload = () => {
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">העלאת נתונים</h1>
+    <p>העלה קובץ CSV של קמפיינים לחודש מסוים. המערכת בודקת אותו לפני השמירה
+       ומראה לך בדיוק מה נמצא בו — שום דבר לא נשמר עד שתאשר.</p></div>`;
+
+  const form = `<section class="card">
+    <h2>קובץ חדש</h2>
+    <p class="sub">כל חודש נשמר בנפרד, כך שאפשר להשוות בין חודשים ולבטל חודש בלי לגעת באחרים.</p>
+
+    <div class="field" style="max-width:240px">
+      <label for="upPeriod">החודש שהנתונים מתארים</label>
+      <input id="upPeriod" type="month" value="${thisMonth}" max="${thisMonth}">
+    </div>
+
+    <div class="drop" id="drop" role="button" tabindex="0" aria-describedby="dropHint">
+      <div class="big" aria-hidden="true">📄</div>
+      <div>גרור לכאן קובץ CSV, או לחץ כדי לבחור</div>
+      <div class="name" id="dropName"></div>
+    </div>
+    <p class="hint" id="dropHint">עד 10MB. הקובץ צריך להכיל את 19 העמודות שברשימה למטה.</p>
+    <input id="upFile" type="file" accept=".csv,text/csv" class="hidden">
+
+    <div class="row-actions">
+      <button class="primary" id="upCheck" disabled>בדוק את הקובץ</button>
+      <button class="primary" id="upSave" disabled style="background:var(--good)">שמור את החודש הזה</button>
+    </div>
+    <div id="upReport" class="report"></div>
+  </section>`;
+
+  const cols = `<section class="card">
+    <h2>העמודות הנדרשות</h2>
+    <p class="sub">שמות העמודות לא רגישים לאותיות גדולות, לרווחים או למקפים —
+       "Ad Budget" ו־"ad_budget" נחשבות זהות.</p>
+    <div class="table-wrap"><table><thead><tr>
+      <th>עמודה</th><th>מה זה</th><th>סוג</th>
+    </tr></thead><tbody>
+      ${COLUMN_DOCS.map(c => `<tr><td><bdi dir="ltr">${c[0]}</bdi></td><td>${c[1]}</td><td>${c[2]}</td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="row-actions">
+      <button class="primary" id="upTemplate" style="background:var(--surface);color:var(--brand-ink);border:1px solid var(--line-strong)">הורד קובץ לדוגמה</button>
+    </div>
+  </section>`;
+
+  return head + form + cols + uploadHistoryCard();
+};
+
+// Column name, what it means, what shape it takes. Kept beside the page it
+// documents; the list the parser actually enforces lives in app/ingest.py, and
+// a test compares the two so this table cannot quietly drift out of date.
+const COLUMN_DOCS = [
+  ["ad_budget", "תקציב הקמפיין בשקלים", "מספר שלם"],
+  ["num_leads", "כמה לידים הגיעו", "מספר שלם"],
+  ["leads_answered", "כמה מהם ענו לטלפון", "מספר שלם"],
+  ["leads_not_answered", "כמה לא ענו", "מספר שלם"],
+  ["followup_1 … followup_5", "כמה הגיעו לכל שלב מעקב", "מספר שלם"],
+  ["closed", "כמה עסקאות נסגרו", "מספר שלם"],
+  ["not_closed", "כמה לא נסגרו", "מספר שלם"],
+  ["calls_to_closed", "שיחות בממוצע עד סגירה", "מספר שלם"],
+  ["calls_to_not_closed", "שיחות שהושקעו בלי סגירה", "מספר שלם"],
+  ["customer_acquisition_cost", "עלות גיוס לקוח", "מספר שלם"],
+  ["ltv_months", "שווי הלקוח בחודשים", "מספר, אפשר להשאיר ריק"],
+  ["cumulative_profit", "רווח מצטבר", "מספר, אפשר להשאיר ריק"],
+  ["purchased", "האם הייתה רכישה", "כן/לא"],
+  ["upsell", "האם הייתה מכירה נוספת", "כן/לא"],
+  ["referred", "האם הלקוח הפנה אחרים", "כן/לא"],
+];
+
+const UPLOAD_STATUS = {
+  ready:     '<span class="pill yes">נשמר</span>',
+  analysing: '<span class="pill no">בעיבוד</span>',
+  pending:   '<span class="pill no">ממתין</span>',
+  failed:    '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">נכשל</span>',
+};
+
+function uploadHistoryCard(){
+  const rows = (ME.uploads || []).map(u => `<tr>
+    <td>${u.period}</td>
+    <td><bdi dir="ltr">${esc(u.filename || "—")}</bdi></td>
+    <td>${num(u.row_count)}</td>
+    <td>${UPLOAD_STATUS[u.status] || esc(u.status)}${u.error ? `<div class="n" style="color:var(--bad)">${esc(u.error)}</div>` : ""}</td>
+    <td>${new Date(u.created_at).toLocaleDateString("he-IL")}</td>
+    <td><button class="ghost" data-del="${u.id}" data-period="${u.period}">מחק חודש</button></td>
+  </tr>`).join("");
+
+  return `<section class="card"><h2>היסטוריית העלאות</h2>` + (rows
+    ? `<p class="sub">מחיקת חודש מסירה גם את השורות שלו. אין עריכה של שורות קיימות —
+         תיקון של חודש נעשה במחיקה והעלאה מחדש, כך שנשאר תיעוד של שתי הפעולות.</p>
+       <div class="table-wrap"><table><thead><tr>
+         <th>חודש</th><th>קובץ</th><th>שורות</th><th>סטטוס</th><th>הועלה ב־</th><th></th>
+       </tr></thead><tbody>${rows}</tbody></table></div>`
+    : `<p class="sub" style="margin:0">עדיין לא הועלו קבצים.</p>`) + `</section>`;
+}
+
+/* -------------------------------------------------------- page: profile */
+function wireRename(){
+  const show = (editing) => {
+    $("coName").classList.toggle("hidden", editing);
+    $("coEdit").classList.toggle("hidden", editing);
+    $("coForm").classList.toggle("hidden", !editing);
+    $("coForm").style.display = editing ? "inline-flex" : "none";
+    if(editing) $("coInput").focus();
+  };
+  show(false);
+  $("coEdit").onclick = () => show(true);
+  $("coCancel").onclick = () => { $("coInput").value = $("coName").textContent; show(false); };
+  $("coSave").onclick = async () => {
+    const name = $("coInput").value.trim();
+    if(!name) return;
+    const s = loadSession();
+    if(!s) return showLogin("החיבור פג. התחבר שוב.");
+    $("coSave").disabled = true;
+    try{
+      const res = await fetch("/api/company", {
+        method:"PATCH",
+        headers:{ "Authorization":"Bearer " + s.token, "Content-Type":"application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.detail || "השינוי נכשל");
+      ME.company = data;
+      render();
+    }catch(e){
+      $("coMsg").textContent = e.message;
+      $("coMsg").style.color = "var(--bad)";
+    }finally{
+      const b = $("coSave"); if(b) b.disabled = false;
+    }
+  };
+}
+
+/* --------------------------------------------------------- page: upload */
+function wireUpload(){
+  const fileInput = $("upFile"), drop = $("drop");
+  let chosen = null, verified = false;
+
+  // Choosing a different file invalidates the previous check. Without this the
+  // save button stays enabled from the last file and would send the new one
+  // unvalidated — the server revalidates, but the person would have been shown
+  // a report describing a file they are no longer uploading.
+  const setFile = (f) => {
+    chosen = f; verified = false;
+    $("dropName").textContent = f ? f.name : "";
+    $("upCheck").disabled = !f;
+    $("upSave").disabled = true;
+    $("upReport").innerHTML = "";
+  };
+
+  drop.onclick = () => fileInput.click();
+  drop.onkeydown = (e) => {
+    if(e.key === "Enter" || e.key === " "){ e.preventDefault(); fileInput.click(); }
+  };
+  fileInput.onchange = () => setFile(fileInput.files[0] || null);
+  ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add("over");
+  }));
+  ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove("over");
+  }));
+  drop.addEventListener("drop", e => setFile(e.dataTransfer.files[0] || null));
+
+  async function send(path, extra){
+    const body = new FormData();
+    body.append("file", chosen);
+    if(extra) Object.entries(extra).forEach(([k, v]) => body.append(k, v));
+    const s = loadSession();
+    if(!s) throw new Error("__expired__");
+    const res = await fetch(path, {
+      method:"POST", headers:{ "Authorization":"Bearer " + s.token }, body,
+    });
+    if(res.status === 401){ clearSession(); throw new Error("__expired__"); }
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok){
+      const d = data.detail;
+      // A rejected file comes back as a 422 whose detail is the full report, so
+      // the page can show the same problem list it shows after a check.
+      if(d && typeof d === "object") return { failed:true, ...d };
+      throw new Error((typeof d === "string" && d) || `הבקשה נכשלה (${res.status})`);
+    }
+    return data;
+  }
+
+  function renderReport(r, saved){
+    const list = (items) => `<ul>${items.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`;
+    let html = "";
+    if(saved){
+      html += `<div class="box ok"><h3>נשמר בהצלחה</h3>
+        ${num(r.rows)} שורות נוספו לחודש ${esc(r.period)}.</div>`;
+    }else if(r.ok){
+      html += `<div class="box ok"><h3>הקובץ תקין</h3>
+        נמצאו ${num(r.rows)} שורות ו־${num(r.columns.length)} עמודות. אפשר לשמור.</div>`;
+    }
+    if(r.errors && r.errors.length){
+      html += `<div class="box err"><h3>הקובץ לא יכול להישמר</h3>${list(r.errors)}</div>`;
+    }
+    if(r.warnings && r.warnings.length){
+      html += `<div class="box warn"><h3>שים לב</h3>${list(r.warnings)}
+        <p style="margin-top:8px">הדברים האלה לא מונעים שמירה. שום ערך לא יתוקן אוטומטית —
+           מה שבקובץ הוא מה שיישמר.</p></div>`;
+    }
+    if(r.preview && r.preview.length && !saved){
+      const keys = Object.keys(r.preview[0]);
+      html += `<h3 style="margin-top:22px">כך המערכת קראה את חמש השורות הראשונות</h3>
+        <p class="sub">אם משהו כאן נראה לא נכון, הבעיה היא בקובץ ולא בתצוגה.</p>
+        <div class="table-wrap"><table><thead><tr>${
+          keys.map(k => `<th><bdi dir="ltr">${esc(k)}</bdi></th>`).join("")
+        }</tr></thead><tbody>${
+          r.preview.map(row => `<tr>${keys.map(k => {
+            const v = row[k];
+            return `<td>${v === null ? na() : (typeof v === "boolean" ? bool(v) : num(v))}</td>`;
+          }).join("")}</tr>`).join("")
+        }</tbody></table></div>`;
+    }
+    $("upReport").innerHTML = html;
+  }
+
+  $("upCheck").onclick = async () => {
+    const btn = $("upCheck"); btn.disabled = true; btn.textContent = "בודק…";
+    try{
+      const r = await send("/api/uploads/preview");
+      verified = r.ok;
+      $("upSave").disabled = !r.ok;
+      renderReport(r, false);
+    }catch(e){
+      if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
+      $("upReport").innerHTML = `<div class="box err">${esc(e.message)}</div>`;
+    }finally{
+      btn.disabled = false; btn.textContent = "בדוק את הקובץ";
+    }
+  };
+
+  $("upSave").onclick = async () => {
+    if(!verified) return;
+    const btn = $("upSave"); btn.disabled = true; btn.textContent = "שומר…";
+    try{
+      const r = await send("/api/uploads", { period: $("upPeriod").value });
+      if(r.failed){ renderReport(r, false); return; }
+      // The whole product changes shape the moment data exists, so both
+      // payloads are refetched rather than patched. A stale INSIGHTS here is
+      // exactly what would leave the empty screen showing over a full workspace.
+      [ME, INSIGHTS] = await Promise.all([api("/api/me"), api("/api/insights")]);
+      render();
+      renderReport(r, true);
+    }catch(e){
+      if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
+      $("upReport").innerHTML = `<div class="box err">${esc(e.message)}</div>`;
+    }finally{
+      const save = $("upSave");
+      if(save) save.textContent = "שמור את החודש הזה";
+    }
+  };
+
+  $("upTemplate").onclick = () => {
+    // A header row and one example line is the whole template. Naming every
+    // column in the spelling the parser expects is the part people get wrong,
+    // and it is the part that costs them a rejected upload.
+    const header = ["ad_budget","num_leads","leads_answered","leads_not_answered",
+      "followup_1","followup_2","followup_3","followup_4","followup_5",
+      "not_closed","closed","calls_to_closed","calls_to_not_closed",
+      "customer_acquisition_cost","ltv_months","purchased","upsell",
+      "cumulative_profit","referred"].join(",");
+    const example = "2000,40,25,15,20,15,9,4,1,12,3,2,4,90,6,Yes,No,4200,No";
+    // The BOM is what makes Excel open a UTF-8 file without mangling it.
+    const blob = new Blob(["﻿" + header + "\n" + example + "\n"],
+                          { type:"text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "funneliq-template.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  wireUploadDeletes();
+}
+
+function wireUploadDeletes(){
+  document.querySelectorAll("[data-del]").forEach(btn => {
+    btn.onclick = async () => {
+      const period = btn.dataset.period;
+      if(!confirm(`למחוק את חודש ${period} ואת כל השורות שלו? אי אפשר לבטל.`)) return;
+      btn.disabled = true; btn.textContent = "מוחק…";
+      try{
+        const s = loadSession();
+        if(!s) return showLogin("החיבור פג. התחבר שוב.");
+        const res = await fetch("/api/uploads/" + btn.dataset.del, {
+          method:"DELETE", headers:{ "Authorization":"Bearer " + s.token },
+        });
+        if(!res.ok) throw new Error("המחיקה נכשלה");
+        [ME, INSIGHTS] = await Promise.all([api("/api/me"), api("/api/insights")]);
+        render();
+      }catch(e){
+        btn.disabled = false; btn.textContent = "מחק חודש";
+        $("upReport") ? $("upReport").innerHTML = `<div class="box err">${esc(e.message)}</div>`
+                      : alert(e.message);
+      }
+    };
+  });
+}
+
 PAGES.profile = () => {
   const c = ME && ME.company;
   const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">פרופיל</h1>
@@ -604,7 +931,17 @@ PAGES.profile = () => {
 
   const details = `<section class="card"><h2>החשבון שלי</h2>
     <div class="table-wrap"><table><tbody>
-      <tr><th style="width:190px">חברה</th><td>${c ? esc(c.name) : na()}</td></tr>
+      <tr><th style="width:190px">חברה</th><td>
+        <span id="coName">${c ? esc(c.name) : na()}</span>
+        <button class="linkbtn" id="coEdit" style="margin-inline-start:10px">שנה שם</button>
+        <span id="coForm" class="hidden" style="display:flex;gap:8px;align-items:center">
+          <input id="coInput" type="text" maxlength="120" style="max-width:260px"
+                 value="${c ? esc(c.name) : ""}" aria-label="שם החברה">
+          <button class="ghost" id="coSave" style="color:var(--brand-ink)">שמור</button>
+          <button class="ghost" id="coCancel" style="color:var(--muted)">ביטול</button>
+        </span>
+        <span id="coMsg" class="n"></span>
+      </td></tr>
       <tr><th>אימייל</th><td><bdi dir="ltr">${esc(ME.email || "")}</bdi></td></tr>
       <tr><th>הרשאה</th><td>${ME.role === "admin" ? "מנהל" : "צפייה בלבד"}</td></tr>
       <tr><th>תאריך הצטרפות</th><td>${ME.joinedAt ? new Date(ME.joinedAt).toLocaleDateString("he-IL") : na()}</td></tr>
@@ -614,26 +951,14 @@ PAGES.profile = () => {
       לקרוא אותם, גם לא דרך באג בקוד — Postgres מסרב לפני שהשאילתה חוזרת.</div>
   </section>`;
 
-  const uploads = ME.uploads && ME.uploads.length
-    ? `<div class="table-wrap"><table><thead><tr>
-         <th>חודש</th><th>קובץ</th><th>שורות</th><th>סטטוס</th><th>הועלה ב־</th>
-       </tr></thead><tbody>` + ME.uploads.map(u => `<tr>
-         <td>${u.period}</td><td>${esc(u.filename || "—")}</td><td>${num(u.row_count)}</td>
-         <td>${esc(u.status)}</td>
-         <td>${new Date(u.created_at).toLocaleDateString("he-IL")}</td></tr>`).join("") +
-       `</tbody></table></div>`
-    : `<p class="sub" style="margin:0">עדיין לא הועלו קבצים דרך המערכת.
-        העלאה חודשית עצמאית, עם שמירת היסטוריה לפי חודשים, נמצאת בפיתוח.</p>`;
-
-  return head + details +
-    `<section class="card"><h2>היסטוריית העלאות</h2>${uploads}</section>` +
+  return head + details + uploadHistoryCard() +
     `<section class="card"><h2>יציאה</h2>
        <p class="sub">ההתנתקות מוחקת את פרטי ההתחברות מהדפדפן הזה בלבד.</p>
        <button class="primary" id="logoutBtn2" style="max-width:220px">התנתקות</button></section>`;
 };
 
 /* --------------------------------------------------------------- routing */
-const ROUTE_ORDER = ["home","data","predict","funnel","budget","profile"];
+const ROUTE_ORDER = ["home","data","predict","funnel","budget","upload","profile"];
 
 function currentPage(){
   const key = (location.hash || "").replace(/^#\/?/, "").split("?")[0];
@@ -656,6 +981,8 @@ function render(){
   window.scrollTo(0, 0);
   if(page === "data" && !INSIGHTS.empty) fillSample();
   if(page === "predict" && !INSIGHTS.empty) wirePredict();
+  if(page === "upload") wireUpload();
+  if(page === "profile"){ wireUploadDeletes(); wireRename(); }
   const lo2 = $("logoutBtn2");
   if(lo2) lo2.onclick = logout;
 }

@@ -86,7 +86,22 @@ python analysis/package5_followup.py        # Package 5
 python analysis/package6_budget.py          # Package 6
 ```
 
-## Loading the data
+## Getting data in
+
+Companies load their own data through the product: **העלאת נתונים** in the
+sidebar takes a CSV, checks it, shows what it found, and stores nothing until
+the person confirms. Each month is a separate upload that can be deleted on its
+own. `funnel_marketing_data.csv` in this repo is a **test fixture**, not
+product data — the test suite reads it, and no company's workspace contains it.
+
+`app/ingest.py` holds the rules, with no database or HTTP dependency, so what
+is accepted can be tested directly. Errors block a save (a missing column, text
+where a number belongs, more than 50,000 rows); warnings do not (rows whose
+parts do not sum to their whole, empty outcome columns, duplicate rows).
+Nothing is repaired silently: a value the company never sent would flow into
+their averages with nothing marking it as ours.
+
+## Loading the data from the command line
 
 Rows belong to a company, so the loader has to be told which one. It takes the
 email of a user in that company and looks the workspace up through `profiles`:

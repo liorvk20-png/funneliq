@@ -52,7 +52,7 @@ def test_the_static_mount_has_not_swallowed_the_api():
 # cheapest checks that would have caught the two ways it has actually broken:
 # a route wired in the sidebar with no page behind it, and an element the
 # JavaScript looks up by id that no longer exists in the markup.
-PAGE_KEYS = ["home", "data", "predict", "funnel", "budget", "profile"]
+PAGE_KEYS = ["home", "data", "predict", "funnel", "budget", "upload", "profile"]
 
 
 @pytest.fixture(scope="module")

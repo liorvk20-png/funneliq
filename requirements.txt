@@ -10,3 +10,6 @@ pandas==2.2.3
 # where training uses them. This is the ~250MB the deploy now carries, and it
 # is the reason the build got slower.
 catboost==1.2.10
+
+# FastAPI needs this to parse multipart/form-data — the CSV upload.
+python-multipart==0.0.20
