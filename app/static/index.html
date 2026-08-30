@@ -74,6 +74,26 @@
   .no{background:rgba(139,152,169,.14);color:var(--muted)}
   .null{color:#5d6b7d;font-style:italic}
   .note{color:var(--muted);font-size:12px;margin-top:10px}
+  .curve{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  .crow{display:flex;align-items:center;gap:12px;margin-bottom:7px}
+  .crow:last-child{margin-bottom:0}
+  .clbl{width:62px;font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+  .ctrack{flex:1;height:14px;background:var(--panel2);border-radius:4px;overflow:hidden}
+  .cfill{height:100%;border-radius:4px}
+  .cval{width:56px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums}
+  .t-Low{background:#6e7681}.t-Mid{background:var(--accent2)}.t-High{background:#f85149}
+  .legend{display:flex;gap:16px;margin-top:14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-left:5px;vertical-align:middle}
+
+  .pred{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  .pgrid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:14px}
+  .pcard{background:var(--panel2);border-radius:8px;padding:14px}
+  .pcard .k{font-size:11.5px;color:var(--muted);margin-bottom:6px}
+  .pcard .v{font-size:22px;font-weight:650}
+  .pcard .cmp{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .warn{color:var(--warn);font-size:11.5px;margin-top:4px}
+  select{padding:8px 10px;background:var(--bg);color:var(--text);border:1px solid var(--line);
+    border-radius:6px;font-size:13px;max-width:100%}
   footer{color:var(--muted);font-size:12px;text-align:center;padding:28px}
 </style>
 </head>
@@ -108,6 +128,18 @@
 
     <h2>Campaigns by budget tier</h2>
     <div class="bars" id="bars"></div>
+
+    <h2>Score a campaign</h2>
+    <div class="pred">
+      <label for="recSel" style="display:block;font-size:12px;color:var(--muted);margin-bottom:7px">
+        Pick a campaign to run all three models against
+      </label>
+      <select id="recSel"></select>
+      <div id="predOut"></div>
+    </div>
+
+    <h2>Return on ad spend, by budget level</h2>
+    <div class="curve" id="curve"></div>
 
     <h2>Sample records</h2>
     <div class="table-wrap"><table id="tbl">
@@ -219,6 +251,51 @@ function renderTable(records){
     </tr>`).join("");
 }
 
+function renderCurve(curve){
+  const max = Math.max(...curve.map(c => c.returnPerShekel));
+  $("curve").innerHTML = curve.map(c => `
+    <div class="crow">
+      <div class="clbl">$${nf.format(c.budget)}</div>
+      <div class="ctrack"><div class="cfill t-${c.tier}" style="width:${(c.returnPerShekel/max*100).toFixed(1)}%"></div></div>
+      <div class="cval">${c.returnPerShekel.toFixed(2)}x</div>
+    </div>`).join("") +
+    `<div class="legend">
+       <span><i class="t-Low"></i>Low</span>
+       <span><i class="t-Mid"></i>Mid</span>
+       <span><i class="t-High"></i>High</span>
+       <span>Below 1.00x the campaign returns less profit than it spent.</span>
+     </div>`;
+}
+
+function renderPrediction(d){
+  const p = d.predicted, a = d.actual;
+  const fmtA = (v, suffix) => v == null ? "n/a" : v + (suffix || "");
+  $("predOut").innerHTML = `
+    <div class="pgrid">
+      <div class="pcard">
+        <div class="k">Predicted LTV</div>
+        <div class="v">${p.ltvMonths}<small style="font-size:13px;color:var(--muted)"> mo</small></div>
+        <div class="cmp">±${p.ltvMarginMonths} typical error &middot; actual ${fmtA(a.ltvMonths)}</div>
+      </div>
+      <div class="pcard">
+        <div class="k">Upsell probability</div>
+        <div class="v">${(p.upsellProbability*100).toFixed(0)}%</div>
+        <div class="cmp">actual: ${a.upsell ? "upsold" : "did not"}</div>
+      </div>
+      <div class="pcard">
+        <div class="k">Super-customer score</div>
+        <div class="v">${p.superCustomerScore}<small style="font-size:13px;color:var(--muted)">/100</small></div>
+        <div class="cmp">actual: ${a.referred ? "referred" : "did not refer"}</div>
+        ${p.scoreCaveat ? `<div class="warn">⚠ ${p.scoreCaveat}</div>` : ""}
+      </div>
+      <div class="pcard">
+        <div class="k">Budget tier</div>
+        <div class="v">${p.budgetTier}</div>
+        <div class="cmp">actual profit ${money(a.cumulativeProfit)}</div>
+      </div>
+    </div>`;
+}
+
 /* ---------------- views ---------------- */
 function showLogin(msg){
   $("appView").classList.add("hidden");
@@ -233,10 +310,24 @@ async function showApp(){
   $("who").textContent = s.email || "";
   $("loginView").classList.add("hidden");
   $("appView").classList.remove("hidden");
-  const [summary, sample] = await Promise.all([api("/api/summary"), api("/api/funnel-records/sample")]);
+  const [summary, sample, curve] = await Promise.all([
+    api("/api/summary"), api("/api/funnel-records/sample"), api("/api/budget-curve")
+  ]);
   renderTiles(summary);
   renderBars(summary);
   renderTable(sample.records);
+  renderCurve(curve.curve);
+
+  const sel = $("recSel");
+  sel.innerHTML = sample.records.map(r =>
+    `<option value="${r.id}">#${r.id} — $${nf.format(r.ad_budget)} budget, ${r.num_leads} leads, ${r.closed} closed</option>`
+  ).join("");
+  const score = async () => {
+    $("predOut").innerHTML = '<p class="note">Scoring…</p>';
+    renderPrediction(await api("/api/predict/" + sel.value));
+  };
+  sel.addEventListener("change", score);
+  await score();
   $("note").textContent =
     `Showing ${sample.count} of ${nf.format(summary.total)} records. ` +
     `${summary.missing.ltvMonths} rows missing LTV, ` +
