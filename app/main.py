@@ -108,6 +108,11 @@ def insights(token: str = Depends(get_current_user_token)):
         "followup_1,followup_2,followup_3,followup_4,followup_5",
     )
     return {
+        # A company that signed up a minute ago has an empty table, and every
+        # aggregate below is undefined for it. Saying so once, here, is what
+        # lets the dashboard show a "upload your first file" screen instead of
+        # a page of dashes — and stops each panel guessing separately.
+        "empty": not rows,
         "summary": _summary(rows),
         "budget": _budget(rows),
         "followup": _followup(rows),
@@ -188,6 +193,18 @@ def _budget(rows) -> dict:
     # real money when they were a hypothetical; this makes the comparison a
     # genuine "same money, spent differently".
     pot = sum(r["ad_budget"] for r in rows)
+    # Two normal states of the product reach here with nothing to divide by:
+    # a company on its first day (no rows), and a company whose first upload
+    # has no profit column filled in yet. Neither is an error, so both return
+    # the empty shape rather than raising.
+    if not curve or not pot:
+        return {
+            "pot": pot,
+            "potSource": "total ad spend across all campaigns in the dataset",
+            "curve": curve, "strategies": [],
+            "current": None, "best": None, "gainPct": None,
+        }
+
     strategies = [{
         "label": f"All at {c['budget']:,}",
         "budgetEach": c["budget"],
@@ -214,7 +231,10 @@ def _budget(rows) -> dict:
         "current": {"expectedProfit": round(current),
                     "returnPerShekel": round(current / pot, 2)},
         "best": best,
-        "gainPct": round((best["expectedProfit"] - current) / current * 100),
+        # A book of campaigns that broke even overall leaves nothing to
+        # express the improvement as a percentage of.
+        "gainPct": (round((best["expectedProfit"] - current) / current * 100)
+                    if current else None),
     }
 
 
@@ -270,13 +290,19 @@ def _followup(rows) -> dict:
         if fast and slow:
             ratios.append(avg_profit(fast) / avg_profit(slow))
 
+    # The paradox needs both ends of the call-count range to exist before it
+    # can be stated. A small first upload may have only fast closers, or none
+    # at all, and the honest answer there is "not enough data yet" rather than
+    # a ratio invented out of one group.
     all_fast = [r for r in closed if r["calls_to_closed"] <= 2]
     all_slow = [r for r in closed if r["calls_to_closed"] >= 5]
-    gap_raw = avg_profit(all_fast) / avg_profit(all_slow)
-    gap_within = sum(ratios) / len(ratios)
+    fast_avg, slow_avg = avg_profit(all_fast), avg_profit(all_slow)
+    gap_raw = fast_avg / slow_avg if fast_avg and slow_avg else None
+    gap_within = sum(ratios) / len(ratios) if ratios else None
 
     productive = sum(r["calls_to_closed"] * r["closed"] for r in rows)
     wasted = sum(r["calls_to_not_closed"] * r["not_closed"] for r in rows)
+    call_total = productive + wasted
 
     return {
         "campaigns": campaigns,
@@ -285,10 +311,12 @@ def _followup(rows) -> dict:
         "unansweredPct": round(100 - funnel[1]["pctOfLeads"], 1),
         "byCalls": calls,
         "byQuality": quality,
-        "gapRaw": round(gap_raw, 1),
-        "gapWithinQuality": round(gap_within, 1),
-        "explainedByQualityPct": round((1 - gap_within / gap_raw) * 100),
-        "wastedCallShare": round(100 * wasted / (wasted + productive), 1),
+        "gapRaw": round(gap_raw, 1) if gap_raw else None,
+        "gapWithinQuality": round(gap_within, 1) if gap_within else None,
+        "explainedByQualityPct": (round((1 - gap_within / gap_raw) * 100)
+                                  if gap_raw and gap_within else None),
+        "wastedCallShare": (round(100 * wasted / call_total, 1)
+                            if call_total else None),
     }
 
 
@@ -315,6 +343,55 @@ def predict_record(record_id: int, token: str = Depends(get_current_user_token))
             "cumulativeProfit": record["cumulative_profit"],
         },
         "predicted": predict(record),
+    }
+
+
+@app.get("/api/me")
+def me(token: str = Depends(get_current_user_token)):
+    """
+    Who is asking, which company they belong to, and how much data that company
+    has. The profile page needs it, and so does the empty-state screen.
+
+    Every read here goes through the caller's own token, so the answer is
+    scoped by the same RLS policies as everything else: `profiles` and
+    `companies` each return exactly one row — the caller's — because
+    current_company_id() decides, not this function. A user whose sign-up
+    trigger failed has no profile at all, and gets a 409 saying so rather than
+    an empty dashboard that looks like a working account with no data.
+    """
+    client = get_user_client(token)
+    profiles = client.table("profiles").select("user_id,email,role,created_at").execute().data
+    if not profiles:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This account has no company attached to it. It was created before "
+            "the workspace trigger existed, or the trigger failed.",
+        )
+    profile = profiles[0]
+    companies = client.table("companies").select("id,name,created_at").execute().data
+    company = companies[0] if companies else None
+
+    # count="exact" asks Postgres for the total instead of counting a page of
+    # rows in Python — the row cap that broke the aggregates does not apply to
+    # it, and limit(1) keeps the body from carrying data nobody reads.
+    records = client.table("funnel_records").select("id", count="exact").limit(1).execute()
+
+    uploads = (
+        client.table("uploads")
+        .select("id,period,filename,row_count,status,error,created_at")
+        .order("period", desc=True)
+        .limit(24)
+        .execute()
+        .data
+    )
+
+    return {
+        "email": profile["email"],
+        "role": profile["role"],
+        "joinedAt": profile["created_at"],
+        "company": company,
+        "recordCount": records.count or 0,
+        "uploads": uploads,
     }
 
 
