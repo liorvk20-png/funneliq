@@ -50,7 +50,7 @@ analysis/       one script per work package, each reproducible on its own
   features.py   the single feature definition; enforces the leakage rule by construction
 models/         trained artifacts, committed so a deploy need not retrain
 scripts/        CSV loader
-schema.sql      table, generated budget_tier column, RLS policy
+migrations/     schema history; 002 turns one company into an engine anyone can join
 ```
 
 ## Running it locally
@@ -93,6 +93,27 @@ python scripts/load_csv_to_supabase.py funnel_marketing_data.csv
 
 Clears the table and reloads, so re-running never duplicates. Requires
 `SUPABASE_SECRET_KEY`. Expect `Loaded 3500 rows`.
+
+## Isolation between companies
+
+Every company's data is invisible to every other company, and that is enforced
+by Postgres rather than by application code. Each policy compares against
+`current_company_id()`, which reads the caller's profile, so a forgotten filter
+or a hastily written endpoint cannot leak another company's rows — the database
+refuses first.
+
+Signing up creates a company and a profile through a trigger on `auth.users`.
+Without it a user would authenticate successfully and then see nothing, because
+`current_company_id()` returns NULL and every policy fails closed.
+
+```bash
+python scripts/verify_isolation.py
+```
+
+Creates two throwaway companies, gives each a row, checks that neither can read
+or write the other's, and removes both. It runs against the real database on
+purpose: the thing under test is a Postgres policy, and only Postgres can say
+whether it holds.
 
 ## The rules this project holds itself to
 
