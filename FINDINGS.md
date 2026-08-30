@@ -345,6 +345,88 @@ chase is the larger win here.
 
 **Shipped:** `models/super_customer.cbm`, CatBoost depth 6 / lr 0.03 / l2 1.0.
 
+## Package 5 — the follow-up paradox
+
+Four packages put `calls_to_closed` at or near the top. This one exists to
+decide whether calling less would *cause* better outcomes or whether call count
+is a symptom of lead quality, because the two readings give a sales team
+opposite instructions.
+
+**This analysis was built expecting to confirm the "symptom" reading. It did
+not, and the finding is reported as it came out.**
+
+### The test
+
+Answer rate — the share of leads who pick up — is a property of the leads,
+fixed before anyone chooses a follow-up policy. If call count is really a proxy
+for quality, the profit gap should collapse once campaigns are compared only
+against others with similar answer rates.
+
+Average profit by lead quality and calls needed:
+
+| lead quality | 1–2 calls | 3–4 calls | 5+ calls |
+|--------------|-----------|-----------|----------|
+| worst 25% | 22,980 | 11,425 | 3,155 |
+| low-mid | 23,357 | 12,126 | 3,605 |
+| high-mid | 23,901 | 14,689 | 3,899 |
+| best 25% | 23,706 | 17,043 | 4,088 |
+
+| comparison | gap |
+|------------|-----|
+| ignoring lead quality | 6.8x |
+| within matched quality bands | 6.4x |
+| **explained by lead quality** | **5%** |
+
+The gap barely moves. It is visible inside *every* quality band — even among the
+best-answering 25% of leads, fast deals return 23,706 against 4,088 for slow
+ones. The confounding explanation does not survive its own test.
+
+Confounding is nonetheless real, just smaller than the effect. Answer rate does
+predict both:
+
+| lead quality | avg answer rate | avg calls to close | avg profit |
+|--------------|-----------------|--------------------|------------|
+| worst 25% | 0.50 | 4.79 | 7,724 |
+| low-mid | 0.58 | 4.12 | 10,566 |
+| high-mid | 0.64 | 3.33 | 15,277 |
+| best 25% | 0.70 | 2.58 | 19,937 |
+
+### What this licenses, and what it does not
+
+**It does not prove that the sixth call destroys value.** Answer rate is one
+proxy for quality, not all of it. Deal size, product fit and rep skill are
+unobserved, and any of them could drive both call count and profit.
+
+**It does mean call count survives the most obvious confounder**, which makes it
+usable as a signal even with the mechanism unresolved.
+
+### Where the effort actually goes
+
+| | calls |
+|---|---|
+| into deals that closed | 37,260 |
+| into deals that never closed | 74,952 |
+| **share of all effort wasted** | **66.8%** |
+
+By tier: Low 57.5%, Mid 69.8%, High 66.3%.
+
+### Recommendations, ordered by how well the data supports them
+
+1. **Fix the top of the funnel.** 63,847 leads — 39% — never answer at all. That
+   one stage loses more people than every follow-up stage combined, and no
+   calling policy reaches them. This needs no causal claim at all.
+
+2. **Treat call four as a review point, not a cut-off.** Expected profit falls
+   from 18,076 at three calls to 7,570 at four. Review rather than stop: 66.8%
+   of calling effort already goes into deals that never close, so the waste is
+   real, but a blind cap also discards the 4,760 that five-call deals still
+   return.
+
+3. **Run the experiment before making it policy.** Randomly cap follow-up at
+   four calls for one group, leave another uncapped. That is the only design
+   that separates the two readings, and it costs one quarter of data rather
+   than a year of a wrong policy.
+
 ## Open questions for later packages
 
 - Does the Mid-tier advantage survive controlling for lead volume, or is
