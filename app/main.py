@@ -48,6 +48,11 @@ def funnel_records_sample(token: str = Depends(get_current_user_token)):
     return {"count": len(result.data), "records": result.data}
 
 
+# Roughly thirty times the current table. High enough never to trip on real
+# growth, low enough that a broken pager fails in seconds.
+MAX_ROWS = 100_000
+
+
 def _fetch_all(client, columns: str, page: int = 1000) -> list[dict]:
     """
     Read every row, a page at a time.
@@ -60,7 +65,11 @@ def _fetch_all(client, columns: str, page: int = 1000) -> list[dict]:
     """
     out: list[dict] = []
     start = 0
-    while True:
+    # A page that does not advance would spin here forever. Found by mutating
+    # the range() call away and watching the test suite hang rather than fail:
+    # a server that stops honouring the range parameter should surface as an
+    # error, not as a request that never returns.
+    while start <= MAX_ROWS:
         batch = (
             client.table("funnel_records")
             .select(columns)
@@ -72,6 +81,10 @@ def _fetch_all(client, columns: str, page: int = 1000) -> list[dict]:
         if len(batch) < page:
             return out
         start += page
+    raise RuntimeError(
+        f"Paged past {MAX_ROWS:,} rows without reaching the end of the table. "
+        "The server is most likely ignoring the range parameter."
+    )
 
 
 @app.get("/api/insights")

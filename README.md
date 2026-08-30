@@ -117,7 +117,31 @@ measured. A caveat in a document nobody opens is not a caveat.
 ## Notes
 
 - Python 3.13 in all three places: local, CI, and Railway (`runtime.txt`).
-- CI lints `app`, `scripts` and `analysis` on every push and pull request.
+- CI lints `app`, `scripts`, `analysis` and `tests`, then runs the test suite, on
+  every push and pull request.
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests -q
+```
+
+51 tests, no secrets and no network — everything reads the committed CSV or
+feeds hand-built rows through the same functions the API uses.
+
+Most of them exist because a specific bug got through. The ones worth knowing:
+
+| test | the bug it pins down |
+|------|----------------------|
+| `test_pagination.py` | PostgREST silently caps a response at 1,000 rows; the first summary averaged 1,000 of 3,500 and looked entirely plausible |
+| `test_loader.py` | `df.where(pd.notnull(df), None)` leaves NaN on a float column, and `json.dumps` emits a bare `NaN` rather than raising |
+| `test_aggregates.py` | the simulator's pot was an invented 1,000,000 presented as a finding |
+| `test_leakage.py` | the four outcome columns must never be features for one another |
+| `test_tiers.py` | `budget_tier` is defined in three places and they have to agree |
+
+Each was verified by reintroducing the bug and watching the suite fail. A test
+that does not fail when the code breaks is worse than no test.
 - Only `catboost` ships to production. The three winning models are all CatBoost,
   so xgboost, lightgbm and scikit-learn stay in `requirements-ml.txt`.
 - `models/` is committed. The artifacts are 1.4MB and never change between
