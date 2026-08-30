@@ -175,6 +175,86 @@ cost is strictly better than defending it, so the final model excludes it.
 **Shipped:** `models/ltv_months.cbm`, CatBoost trained on all 3,496 usable rows.
 Expected error in production is about 2.2 months either way.
 
+## Package 3 — predicting upsell
+
+Three classifiers, stratified 5-fold so every fold holds the same class mix.
+3,500 rows, all usable — the target has no missing values.
+
+| model | accuracy | precision | recall | F1 | ROC-AUC | **PR-AUC** |
+|-------|----------|-----------|--------|-----|---------|------------|
+| Baseline (always "no") | 0.581 | 0.000 | 0.000 | 0.000 | 0.500 | 0.419 |
+| XGBoost  | 0.756 | 0.686 | 0.769 | 0.725 | 0.804 | 0.664 |
+| LightGBM | 0.758 | 0.684 | 0.785 | 0.731 | 0.804 | 0.661 |
+| **CatBoost** | **0.774** | 0.696 | **0.818** | **0.752** | **0.817** | **0.680** |
+
+CatBoost again, and by a wider margin than in Package 2. Recall of 0.818 means
+it finds about four in five of the customers who go on to upsell.
+
+Note the baseline row: always answering "no upsell" scores 0.581 accuracy while
+being useless, which is why accuracy is reported but not ranked on.
+
+### The imbalance decision — measured, not assumed
+
+The classes split **1.39:1**. "Imbalanced" normally means 4:1 or worse, and the
+techniques built for it assume a minority rare enough that a model can ignore it
+and still score well. That is not this dataset. Both settings were run anyway:
+
+| model | F1 as-is | F1 weighted | PR-AUC as-is | PR-AUC weighted |
+|-------|----------|-------------|--------------|-----------------|
+| XGBoost  | 0.7252 | 0.7405 | 0.6641 | 0.6656 |
+| LightGBM | 0.7309 | 0.7471 | 0.6610 | 0.6602 |
+| CatBoost | 0.7518 | 0.7606 | 0.6796 | 0.6792 |
+
+**The two metrics disagree, and the disagreement is the answer.** Weighting
+lifts F1 by 0.01–0.02, which looks like a win. PR-AUC does not move — CatBoost
+goes 0.6796 → 0.6792.
+
+PR-AUC is threshold-free and measures *ranking*; F1 is measured at a fixed 0.5
+cutoff. So weighting is not making the model better at telling upsellers apart.
+It is sliding the cutoff toward recall and collecting the F1 that follows — a
+move available directly by choosing a threshold, where the trade is at least
+visible.
+
+**Decision: no resampling, no class weights.** Weighting pushes predicted
+probabilities away from the true rate, so 0.7 stops meaning "about 70% of these
+convert". Package 4 builds its 0–100 score on exactly those probabilities.
+Spending calibration we still need to buy a threshold shift is a bad trade.
+
+### `purchased` kept here — the opposite call to Package 2
+
+| | upsell False | upsell True |
+|---|---|---|
+| **purchased False** | 337 | **0** |
+| **purchased True** | 1,697 | 1,466 |
+
+Zero upsells exist without a purchase. `purchased` is not so much a predictor of
+upsell as a precondition for it, and "who will upsell" is only ever asked about
+someone who bought.
+
+Unlike Package 2, dropping it costs real accuracy:
+
+| model | PR-AUC with | without | cost of dropping |
+|-------|-------------|---------|------------------|
+| XGBoost  | 0.6641 | 0.6390 | −0.0251 |
+| LightGBM | 0.6610 | 0.6402 | −0.0208 |
+| CatBoost | 0.6796 | 0.6613 | −0.0183 |
+
+The same column was worth nothing for LTV and is worth ~0.02 PR-AUC here. Kept.
+
+### What the model uses
+
+| feature | share |
+|---------|-------|
+| purchased | 33.4% |
+| calls_to_closed | 18.4% |
+| customer_acquisition_cost | 7.7% |
+| num_leads | 5.1% |
+
+`calls_to_closed` is second again, after being first in Package 2. Three
+independent analyses have now surfaced it.
+
+**Shipped:** `models/upsell.cbm`, CatBoost, no resampling, trained on all 3,500 rows.
+
 ## Open questions for later packages
 
 - Does the Mid-tier advantage survive controlling for lead volume, or is
