@@ -86,6 +86,10 @@
   .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-left:5px;vertical-align:middle}
 
   .pred{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  .filters{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .filters label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;
+    letter-spacing:.05em}
+  .filters select{width:100%;margin-top:5px}
   .pgrid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:14px}
   .pcard{background:var(--panel2);border-radius:8px;padding:14px}
   .pcard .k{font-size:11.5px;color:var(--muted);margin-bottom:6px}
@@ -165,15 +169,50 @@
       <label for="recSel" style="display:block;font-size:12px;color:var(--muted);margin-bottom:7px">
         Pick a campaign to run all three models against
       </label>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <select id="tierFilter" style="width:auto">
-          <option value="">All tiers</option>
-          <option value="Low">Low</option>
-          <option value="Mid">Mid</option>
-          <option value="High">High</option>
-        </select>
-        <select id="recSel" style="flex:1;min-width:240px"></select>
+      <div class="filters">
+        <label>Tier
+          <select id="fTier"><option value="">Any</option>
+            <option>Low</option><option>Mid</option><option>High</option></select>
+        </label>
+        <label>Close rate
+          <select id="fClose"><option value="">Any</option>
+            <option value="0">Nothing closed</option>
+            <option value="0-5">Under 5%</option>
+            <option value="5-10">5&ndash;10%</option>
+            <option value="10-100">Over 10%</option></select>
+        </label>
+        <label>Cost per lead
+          <select id="fCpl"><option value="">Any</option>
+            <option value="0-50">Under $50</option>
+            <option value="50-100">$50&ndash;100</option>
+            <option value="100-200">$100&ndash;200</option>
+            <option value="200-99999">Over $200</option></select>
+        </label>
+        <label>Answer rate
+          <select id="fAns"><option value="">Any</option>
+            <option value="0-50">Under 50%</option>
+            <option value="50-60">50&ndash;60%</option>
+            <option value="60-70">60&ndash;70%</option>
+            <option value="70-100">Over 70%</option></select>
+        </label>
+        <label>Calls to close
+          <select id="fCalls"><option value="">Any</option>
+            <option value="1-2">1&ndash;2 (fast)</option>
+            <option value="3-4">3&ndash;4</option>
+            <option value="5-99">5+ (slow)</option></select>
+        </label>
+        <label>Sort by
+          <select id="fSort">
+            <option value="id">Campaign id</option>
+            <option value="budget">Largest budget</option>
+            <option value="closed">Most closes</option>
+            <option value="closeRate">Best close rate</option>
+            <option value="cpl">Lowest cost per lead</option>
+            <option value="answerRate">Best answer rate</option>
+          </select>
+        </label>
       </div>
+      <select id="recSel" style="width:100%;margin-top:10px"></select>
       <p class="note" id="recCount"></p>
       <div id="predOut"></div>
     </div>
@@ -424,9 +463,15 @@ function renderPrediction(d){
         ${p.scoreCaveat ? `<div class="warn">⚠ ${p.scoreCaveat}</div>` : ""}
       </div>
       <div class="pcard">
+        <div class="k">Predicted profit</div>
+        <div class="v">$${nf.format(p.profit)}</div>
+        <div class="cmp">±$${nf.format(p.profitMargin)} typical &middot; actual ${money(a.cumulativeProfit)}</div>
+        <div class="warn">${p.profitUse}</div>
+      </div>
+      <div class="pcard">
         <div class="k">Budget tier</div>
         <div class="v">${p.budgetTier}</div>
-        <div class="cmp">actual profit ${money(a.cumulativeProfit)}</div>
+        <div class="cmp">$${nf.format(a.cumulativeProfit == null ? 0 : a.cumulativeProfit)} actual profit</div>
       </div>
     </div>`;
 }
@@ -457,23 +502,56 @@ async function showApp(){
   renderCurve(insights.budget.curve);
   renderStrategies(insights.budget);
 
-  const sel = $("recSel"), filter = $("tierFilter"), all = insights.records;
+  const sel = $("recSel");
+  // Derived once, not per keystroke: 3,500 rows re-filtered on every change.
+  const all = insights.records.map(r => ({
+    ...r,
+    cpl: r.leads ? r.budget / r.leads : 0,
+    answerRate: r.leads ? r.answered / r.leads * 100 : 0,
+    closeRate: r.leads ? r.closed / r.leads * 100 : 0,
+  }));
+
+  const inRange = (v, spec) => {
+    if (!spec) return true;
+    if (spec === "0") return v === 0;
+    const [lo, hi] = spec.split("-").map(Number);
+    return v >= lo && v < hi;
+  };
+
   function fill(){
-    const tier = filter.value;
-    const list = tier ? all.filter(r => r.tier === tier) : all;
-    sel.innerHTML = list.map(r =>
-      `<option value="${r.id}">#${r.id} — $${nf.format(r.budget)} budget · ${r.leads} leads · ${r.closed} closed · ${r.tier}</option>`
-    ).join("");
-    $("recCount").textContent =
-      `${nf.format(list.length)} campaigns available${tier ? ` in the ${tier} tier` : ""}. ` +
-      `Type in the list to jump to one.`;
+    const t = $("fTier").value;
+    let list = all.filter(r =>
+      (!t || r.tier === t) &&
+      inRange(r.closeRate, $("fClose").value) &&
+      inRange(r.cpl, $("fCpl").value) &&
+      inRange(r.answerRate, $("fAns").value) &&
+      inRange(r.calls, $("fCalls").value));
+
+    const sort = $("fSort").value;
+    const dir = { id: 1, cpl: 1 };            // ascending for these, descending otherwise
+    list = [...list].sort((a, b) => (dir[sort] ? 1 : -1) * (a[sort] - b[sort]));
+
+    sel.innerHTML = list.length
+      ? list.map(r =>
+          `<option value="${r.id}">#${r.id} — $${nf.format(r.budget)} · ${r.leads} leads · ` +
+          `${r.closed} closed (${r.closeRate.toFixed(1)}%) · $${r.cpl.toFixed(0)}/lead · ` +
+          `${r.answerRate.toFixed(0)}% answered · ${r.calls} calls · ${r.tier}</option>`).join("")
+      : `<option value="">No campaigns match these filters</option>`;
+
+    $("recCount").textContent = list.length
+      ? `${nf.format(list.length)} of ${nf.format(all.length)} campaigns match. Type in the list to jump to one.`
+      : `No campaigns match. Widen a filter.`;
+    return list.length;
   }
+
   const score = async () => {
-    if (!sel.value) return;
+    if (!sel.value) { $("predOut").innerHTML = ""; return; }
     $("predOut").innerHTML = '<p class="note">Scoring…</p>';
     renderPrediction(await api("/api/predict/" + sel.value));
   };
-  filter.addEventListener("change", () => { fill(); score(); });
+
+  ["fTier","fClose","fCpl","fAns","fCalls","fSort"].forEach(id =>
+    $(id).addEventListener("change", () => { fill(); score(); }));
   sel.addEventListener("change", score);
   fill();
   await score();

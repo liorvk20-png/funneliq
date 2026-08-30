@@ -506,6 +506,61 @@ continue only if the curve holds. Caveat (a) is the real risk, and a staged move
 is what makes it survivable: if demand does not scale, a quarter of the budget
 finds out instead of all of it.
 
+## Package 6b — a model for profit, and why it cannot plan
+
+Package 6's simulator deliberately avoids a model. This trains one anyway, for
+the other job: once a campaign has run, "what drove the profit" is a real
+question that a model answers better than a table of averages.
+
+| model | MAE | RMSE | R² |
+|-------|-----|------|-----|
+| Baseline (mean) | 9,590 | 11,171 | −0.00 |
+| XGBoost | 2,680 | 5,621 | 0.75 |
+| LightGBM | 2,634 | 5,287 | 0.78 |
+| **CatBoost** | **2,462** | 5,257 | **0.78** |
+
+74% better than predicting the mean. The MAE/RMSE gap is wider here than in any
+other package — 2,462 against 5,257 — which is the clearest measure of what the
+five kept outliers cost: squared error is dominated by a handful of campaigns.
+
+### What drives profit
+
+| feature | share |
+|---------|-------|
+| calls_to_closed | 49.8% |
+| purchased | 30.5% |
+| leads_not_answered | 3.0% |
+| leads_answered | 2.8% |
+
+`calls_to_closed` leads for the fifth time across six packages.
+
+### Why this model must not be used for budgeting
+
+Splitting the model's own importances by when each input becomes known:
+
+| | share |
+|---|---|
+| known when the budget is set (`ad_budget`, `budget_tier`) | **2.3%** |
+| only known after the campaign ran (14 columns) | **97.7%** |
+
+**97.7% of what this model relies on does not exist at the moment a budget is
+chosen.** Its headline R² of 0.78 is earned almost entirely on information a
+planner does not have — and that headline is exactly what would make it
+tempting to misuse.
+
+So Package 6 has two halves answering different questions:
+
+| file | job | inputs |
+|------|-----|--------|
+| `package6_budget.py` | **plans** | the decision variable only |
+| `package6b_profit_model.py` | **explains** | everything, after the fact |
+
+Reporting a number from the wrong half is the specific mistake the split exists
+to prevent. The API labels the served prediction accordingly: *"explains a
+completed campaign, not a budget forecast"*.
+
+**Shipped:** `models/profit.cbm`, expected error about 2,462 either way.
+
 ## Open questions for later packages
 
 - Does the Mid-tier advantage survive controlling for lead volume, or is

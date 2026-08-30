@@ -14,6 +14,7 @@ answers a person can act on, served as a login-gated web app.
 | 3 | Who will buy an upsell? | CatBoost, **0.818 recall**, 0.680 PR-AUC |
 | 4 | Who is worth chasing? | Calibrated 0–100 score, 9.3% → 73.3% referral rate across bands |
 | 5 | Do follow-up calls destroy value? | The "it's just bad leads" explanation **fails its own test** |
+| 6b | What drove a campaign's profit? | CatBoost, MAE 2,462 — **explanatory only**, 97.7% of it needs data a planner lacks |
 | 6 | Where should the budget go? | Return peaks at **10.87x** and falls below 1.00x above 6,000 |
 
 The budget simulator compares strategies over the agency's **actual** total ad
