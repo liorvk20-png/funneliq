@@ -94,6 +94,37 @@
   .warn{color:var(--warn);font-size:11.5px;margin-top:4px}
   select{padding:8px 10px;background:var(--bg);color:var(--text);border:1px solid var(--line);
     border-radius:6px;font-size:13px;max-width:100%}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  .finding{background:var(--panel2);border-right:3px solid var(--accent);border-radius:6px;
+    padding:14px 16px;margin-bottom:18px;font-size:14px;line-height:1.6}
+  .finding b{color:var(--text)}
+  .finding .big{font-size:20px;font-weight:700;color:var(--accent2)}
+
+  .funnel-row{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .funnel-lbl{width:92px;font-size:12.5px;color:var(--muted)}
+  .funnel-track{flex:1;height:20px;background:var(--panel2);border-radius:4px;overflow:hidden}
+  .funnel-fill{height:100%;background:linear-gradient(90deg,var(--accent),#2d7fd3);border-radius:4px}
+  .funnel-val{width:132px;text-align:left;font-size:12.5px;color:var(--muted);
+    font-variant-numeric:tabular-nums}
+  .funnel-drop{color:var(--danger);font-weight:600}
+
+  .calls-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .calls-lbl{width:74px;font-size:12.5px;color:var(--muted)}
+  .calls-track{flex:1;height:16px;background:var(--panel2);border-radius:4px;overflow:hidden}
+  .calls-fill{height:100%;border-radius:4px;background:var(--accent2)}
+  .calls-fill.low{background:var(--warn)}
+  .calls-fill.bad{background:#f85149}
+  .calls-val{width:150px;text-align:left;font-size:12.5px;color:var(--muted);
+    font-variant-numeric:tabular-nums}
+
+  .strat{width:100%;border-collapse:collapse;font-size:13px}
+  .strat th,.strat td{padding:8px 11px;border-bottom:1px solid var(--line);text-align:left}
+  .strat th:first-child,.strat td:first-child{text-align:right}
+  .strat th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  .strat td{font-variant-numeric:tabular-nums}
+  .strat tr:last-child td{border-bottom:0}
+  .strat .hi{background:rgba(46,160,67,.13);font-weight:700}
+  .strat .cur{background:var(--panel2);font-style:italic}
   footer{color:var(--muted);font-size:12px;text-align:center;padding:28px}
 </style>
 </head>
@@ -138,8 +169,35 @@
       <div id="predOut"></div>
     </div>
 
+    <h2>Where the funnel loses people</h2>
+    <div class="panel">
+      <div class="finding" id="funnelFinding"></div>
+      <div id="funnel"></div>
+    </div>
+
+    <h2>The follow-up paradox</h2>
+    <div class="panel">
+      <div class="finding" id="callsFinding"></div>
+      <div id="calls"></div>
+      <p class="note" style="margin-top:16px">Average profit by lead quality &mdash; the test for whether calling is the cause</p>
+      <div class="table-wrap" style="margin-top:8px"><table id="qualityTbl">
+        <thead><tr><th>Lead quality</th><th>1&ndash;2 calls</th><th>3&ndash;4 calls</th><th>5+ calls</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
     <h2>Return on ad spend, by budget level</h2>
     <div class="curve" id="curve"></div>
+
+    <h2>Where to put the budget</h2>
+    <div class="panel">
+      <div class="finding" id="stratFinding"></div>
+      <div class="table-wrap"><table class="strat" id="stratTbl">
+        <thead><tr><th>Strategy</th><th>Campaigns</th><th>Expected profit</th><th>Per shekel</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="note">Saturation is not modelled: the best row assumes the market absorbs that many campaigns. Move a quarter of High-tier spend down a tier, measure a quarter, continue only if the curve holds.</p>
+    </div>
 
     <h2>Sample records</h2>
     <div class="table-wrap"><table id="tbl">
@@ -251,6 +309,67 @@ function renderTable(records){
     </tr>`).join("");
 }
 
+function renderFunnel(f){
+  const max = f.funnel[0].count;
+  $("funnelFinding").innerHTML =
+    `<span class="big">${nf.format(f.unanswered)}</span> leads &mdash; ${f.unansweredPct}% &mdash; ` +
+    `<b>never answer at all.</b> That single stage loses more people than every follow-up ` +
+    `stage combined, and no calling policy reaches them. This is the largest fixable loss ` +
+    `in the system.`;
+  $("funnel").innerHTML = f.funnel.map((s, i) => {
+    const prev = i ? f.funnel[i-1].count : null;
+    const lost = prev ? prev - s.count : 0;
+    return `<div class="funnel-row">
+      <div class="funnel-lbl">${s.stage}</div>
+      <div class="funnel-track"><div class="funnel-fill" style="width:${(s.count/max*100).toFixed(1)}%"></div></div>
+      <div class="funnel-val">${nf.format(s.count)} &middot; ${s.pctOfLeads}%${
+        lost ? ` <span class="funnel-drop">&minus;${nf.format(lost)}</span>` : ""}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderCalls(f){
+  $("callsFinding").innerHTML =
+    `Deals closed in 1&ndash;2 calls are worth <span class="big">${f.gapRaw}x</span> those taking 5+. ` +
+    `<b>We tested whether that is just bad leads &mdash; it is not.</b> Holding lead quality still, ` +
+    `the gap only falls to ${f.gapWithinQuality}x, so quality explains just ${f.explainedByQualityPct}% of it. ` +
+    `This does <b>not</b> prove calls cause the loss; other factors are unmeasured. ` +
+    `It does mean call count survives the obvious alternative explanation.`;
+  const max = Math.max(...f.byCalls.map(c => c.avgProfit));
+  $("calls").innerHTML = f.byCalls.map(c => {
+    const cls = c.avgProfit > max*0.6 ? "" : (c.avgProfit > max*0.25 ? "low" : "bad");
+    return `<div class="calls-row">
+      <div class="calls-lbl">${c.calls} call${c.calls>1?"s":""}</div>
+      <div class="calls-track"><div class="calls-fill ${cls}" style="width:${(c.avgProfit/max*100).toFixed(1)}%"></div></div>
+      <div class="calls-val">$${nf.format(c.avgProfit)} &middot; ${c.avgLtv}mo &middot; ${c.upsellRate}%</div>
+    </div>`;
+  }).join("") +
+  `<p class="note" style="margin-top:10px">Bars show average profit. Each row also lists average LTV and upsell rate. ` +
+   `${f.wastedCallShare}% of all calling effort already goes into deals that never close.</p>`;
+
+  $("qualityTbl").querySelector("tbody").innerHTML = f.byQuality.map(q =>
+    `<tr><td style="text-align:left">${q.band}</td><td>$${nf.format(q.fast)}</td>` +
+    `<td>$${nf.format(q.medium)}</td><td>$${nf.format(q.slow)}</td></tr>`).join("");
+}
+
+function renderStrategies(b){
+  $("stratFinding").innerHTML =
+    `On a $${nf.format(b.pot)} budget, concentrating at $${nf.format(b.best.budgetEach)} per campaign ` +
+    `returns <span class="big">$${nf.format(b.best.expectedProfit)}</span> against ` +
+    `$${nf.format(b.current.expectedProfit)} for the current spending mix &mdash; ` +
+    `<b>${b.gainPct}% more from the same money</b>, with no new spend.`;
+  const top = b.strategies.slice(0, 5), worst = b.strategies.slice(-2);
+  const row = (s, cls) => `<tr class="${cls}"><td style="text-align:right">${s.label}</td>` +
+    `<td>${nf.format(s.campaigns)}</td><td>$${nf.format(s.expectedProfit)}</td>` +
+    `<td>${s.returnPerShekel.toFixed(2)}x</td></tr>`;
+  $("stratTbl").querySelector("tbody").innerHTML =
+    `<tr class="cur"><td style="text-align:right">Current mix</td><td>&mdash;</td>` +
+    `<td>$${nf.format(b.current.expectedProfit)}</td><td>${b.current.returnPerShekel.toFixed(2)}x</td></tr>` +
+    top.map((s, i) => row(s, i === 0 ? "hi" : "")).join("") +
+    `<tr><td colspan="4" style="text-align:center;color:var(--muted)">&hellip;</td></tr>` +
+    worst.map(s => row(s, "")).join("");
+}
+
 function renderCurve(curve){
   const max = Math.max(...curve.map(c => c.returnPerShekel));
   $("curve").innerHTML = curve.map(c => `
@@ -310,13 +429,17 @@ async function showApp(){
   $("who").textContent = s.email || "";
   $("loginView").classList.add("hidden");
   $("appView").classList.remove("hidden");
-  const [summary, sample, curve] = await Promise.all([
-    api("/api/summary"), api("/api/funnel-records/sample"), api("/api/budget-curve")
+  const [insights, sample] = await Promise.all([
+    api("/api/insights"), api("/api/funnel-records/sample")
   ]);
+  const summary = insights.summary;
   renderTiles(summary);
   renderBars(summary);
   renderTable(sample.records);
-  renderCurve(curve.curve);
+  renderFunnel(insights.followup);
+  renderCalls(insights.followup);
+  renderCurve(insights.budget.curve);
+  renderStrategies(insights.budget);
 
   const sel = $("recSel");
   sel.innerHTML = sample.records.map(r =>
@@ -353,8 +476,16 @@ $("loginForm").addEventListener("submit", async (e) => {
 $("logoutBtn").addEventListener("click", () => { clearSession(); showLogin(); });
 
 (async () => {
-  if (loadSession()) { try { await showApp(); } catch { showLogin(); } }
-  else showLogin();
+  if (!loadSession()) { showLogin(); return; }
+  try {
+    await showApp();
+  } catch {
+    // showLogin() with no argument clears the message box, which would erase the
+    // "session expired" explanation api() just set. Only fall back to a bare
+    // login screen if nothing has already explained why we are here.
+    if ($("loginErr").style.display !== "block") showLogin();
+    else { $("appView").classList.add("hidden"); $("loginView").classList.remove("hidden"); }
+  }
 })();
 </script>
 </body>
