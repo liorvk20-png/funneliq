@@ -32,7 +32,14 @@
     border-radius:7px;font-size:14px;font-weight:600;cursor:pointer}
   button:hover{filter:brightness(1.1)}
   button:disabled{opacity:.55;cursor:not-allowed}
+  .tabs{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);
+    border-radius:8px;padding:4px;margin-bottom:22px}
+  .tabs button{flex:1;margin:0;padding:8px;background:transparent;color:var(--muted);
+    font-size:13.5px;font-weight:600;border-radius:6px}
+  .tabs button[aria-selected="true"]{background:var(--panel2);color:var(--text)}
+  .tabs button:hover{filter:none}
   .msg{margin-top:16px;padding:10px 12px;border-radius:7px;font-size:13px;display:none}
+  .msg.ok{display:block;background:rgba(46,160,67,.12);border:1px solid rgba(46,160,67,.4);color:#7ee2a8}
   .msg.err{display:block;background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);color:#ffb3ae}
 
   /* ---------- app ---------- */
@@ -138,13 +145,26 @@
 <div id="loginView" class="login-wrap">
   <form class="login" id="loginForm">
     <h1 class="brand">Funnel<span>IQ</span></h1>
-    <p class="tagline">Northbound Media &middot; marketing analytics</p>
+    <p class="tagline" id="tagline">Marketing analytics for your campaigns</p>
+
+    <div class="tabs" role="tablist">
+      <button type="button" id="tabSignIn" role="tab" aria-selected="true">Sign in</button>
+      <button type="button" id="tabSignUp" role="tab" aria-selected="false">Create account</button>
+    </div>
+
+    <div id="companyField" class="hidden">
+      <label for="company">Company name</label>
+      <input id="company" type="text" autocomplete="organization"
+             placeholder="Acme Marketing">
+    </div>
+
     <label for="email">Email</label>
     <input id="email" type="email" autocomplete="username" required>
     <label for="password">Password</label>
     <input id="password" type="password" autocomplete="current-password" required>
     <button type="submit" id="loginBtn">Sign in</button>
     <div class="msg err" id="loginErr"></div>
+    <div class="msg ok" id="loginOk"></div>
   </form>
 </div>
 
@@ -272,6 +292,22 @@ async function getConfig(){
 }
 
 /* ---------------- auth ---------------- */
+let mode = "signin";
+
+async function signUp(email, password, company){
+  const c = await getConfig();
+  const res = await fetch(`${c.supabaseUrl}/auth/v1/signup`, {
+    method: "POST",
+    headers: { "apikey": c.publishableKey, "Content-Type": "application/json" },
+    // company_name reaches the database trigger through raw_user_meta_data and
+    // becomes the name of the company created for this account.
+    body: JSON.stringify({ email, password, data: { company_name: company || "" } })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || data.msg || data.error || "Could not create the account");
+  return data;
+}
+
 async function signIn(email, password){
   const c = await getConfig();
   const res = await fetch(`${c.supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -480,8 +516,9 @@ function renderPrediction(d){
 function showLogin(msg){
   $("appView").classList.add("hidden");
   $("loginView").classList.remove("hidden");
+  $("loginOk").style.display = "none";
   const box = $("loginErr");
-  if (msg) { box.textContent = msg; box.classList.add("err"); box.style.display = "block"; }
+  if (msg) { box.textContent = msg; box.style.display = "block"; }
   else { box.style.display = "none"; }
 }
 
@@ -562,18 +599,64 @@ async function showApp(){
 }
 
 /* ---------------- wiring ---------------- */
+function setMode(next){
+  mode = next;
+  const up = next === "signup";
+  $("tabSignIn").setAttribute("aria-selected", String(!up));
+  $("tabSignUp").setAttribute("aria-selected", String(up));
+  $("companyField").classList.toggle("hidden", !up);
+  $("loginBtn").textContent = up ? "Create account" : "Sign in";
+  $("password").setAttribute("autocomplete", up ? "new-password" : "current-password");
+  $("tagline").textContent = up
+    ? "Create a workspace for your company"
+    : "Marketing analytics for your campaigns";
+  $("loginErr").style.display = "none";
+  $("loginOk").style.display = "none";
+}
+
+$("tabSignIn").addEventListener("click", () => setMode("signin"));
+$("tabSignUp").addEventListener("click", () => setMode("signup"));
+
+function say(kind, text){
+  const box = $(kind === "ok" ? "loginOk" : "loginErr");
+  const other = $(kind === "ok" ? "loginErr" : "loginOk");
+  other.style.display = "none";
+  box.textContent = text;
+  box.style.display = "block";
+}
+
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const btn = $("loginBtn");
-  btn.disabled = true; btn.textContent = "Signing in…";
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = mode === "signup" ? "Creating…" : "Signing in…";
+  const email = $("email").value.trim();
   try {
-    saveSession(await signIn($("email").value.trim(), $("password").value));
+    if (mode === "signup") {
+      const data = await signUp(email, $("password").value, $("company").value.trim());
+      $("password").value = "";
+      if (data.access_token) {
+        // The project has email confirmation switched off, so the account is
+        // usable immediately and there is nothing to wait for.
+        saveSession(data);
+        await showApp();
+        return;
+      }
+      // Confirmation is on: no session yet, and the user needs to know that
+      // nothing is broken — the account exists and is waiting on an email.
+      setMode("signin");
+      say("ok", `Account created for ${email}. Check your inbox for a confirmation ` +
+                `link, then sign in. It can take a minute to arrive.`);
+      return;
+    }
+    saveSession(await signIn(email, $("password").value));
     $("password").value = "";
     await showApp();
   } catch (err) {
-    showLogin(err.message);
+    say("err", err.message);
   } finally {
-    btn.disabled = false; btn.textContent = "Sign in";
+    btn.disabled = false; btn.textContent = label;
   }
 });
 
