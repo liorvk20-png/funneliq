@@ -90,6 +90,7 @@ def insights(token: str = Depends(get_current_user_token)):
     rows = _fetch_all(
         get_user_client(token),
         "id,ad_budget,budget_tier,num_leads,leads_answered,ltv_months,cumulative_profit,"
+        "customer_acquisition_cost,"
         "purchased,upsell,referred,closed,not_closed,calls_to_closed,calls_to_not_closed,"
         "followup_1,followup_2,followup_3,followup_4,followup_5",
     )
@@ -102,8 +103,15 @@ def insights(token: str = Depends(get_current_user_token)):
         # which quietly limited scoring to 0.3% of the data — and to the ten
         # lowest ids, so all of them were small. Four fields per row keeps the
         # whole index under a few hundred KB, and it costs no extra scan.
-        "records": [{"id": r["id"], "budget": r["ad_budget"], "tier": r["budget_tier"],
-                     "leads": r["num_leads"], "closed": r["closed"]} for r in rows],
+        # Enough fields for the picker to filter on how a campaign performed,
+        # not only on what it cost. Derived rates are computed in the browser so
+        # the payload stays raw and one definition of each rate lives in one place.
+        "records": [{
+            "id": r["id"], "budget": r["ad_budget"], "tier": r["budget_tier"],
+            "leads": r["num_leads"], "answered": r["leads_answered"],
+            "closed": r["closed"], "cac": r["customer_acquisition_cost"],
+            "calls": r["calls_to_closed"],
+        } for r in rows],
     }
 
 

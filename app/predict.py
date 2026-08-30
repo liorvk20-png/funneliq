@@ -32,6 +32,7 @@ def _load(cls, name: str):
 
 
 ltv = _load(CatBoostRegressor, "ltv_months.cbm")
+profit = _load(CatBoostRegressor, "profit.cbm")
 upsell = _load(CatBoostClassifier, "upsell.cbm")
 super_customer = _load(CatBoostClassifier, "super_customer.cbm")
 
@@ -54,6 +55,7 @@ def predict(record: dict) -> dict:
     categorical = pd.DataFrame([{**row, "budget_tier": tier}])
 
     months = float(ltv.predict(numeric[ltv.feature_names_])[0])
+    money = float(profit.predict(numeric[profit.feature_names_])[0])
     p_upsell = float(upsell.predict_proba(numeric[upsell.feature_names_])[0][1])
     p_referral = float(super_customer.predict_proba(
         categorical[super_customer.feature_names_])[0][1])
@@ -68,5 +70,12 @@ def predict(record: dict) -> dict:
         # Above 80 the model was measurably overconfident in Package 4 — it
         # claimed 0.838 and delivered 0.761 — so the flag travels with the score.
         "scoreCaveat": "overconfident above 80" if p_referral * 100 > 80 else None,
+        "profit": round(money),
+        "profitMargin": 2462,
+        # 97.7% of this model's importance sits in columns that only exist after
+        # a campaign has run, so it explains an outcome rather than forecasting
+        # one. The label travels with the number to stop it being read as a
+        # budget forecast, which is the one way it is genuinely misleading.
+        "profitUse": "explains a completed campaign, not a budget forecast",
         "budgetTier": tier,
     }
