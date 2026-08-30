@@ -1,0 +1,7 @@
+# Test dependencies. Separate from requirements.txt so nothing here ships to
+# production, and from requirements-ml.txt because the tests do not train.
+#
+# httpx is deliberately unpinned: TestClient needs it, supabase already pins a
+# compatible range, and pinning it again here only creates a conflict to
+# resolve later.
+pytest==8.4.2

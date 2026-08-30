@@ -11,8 +11,14 @@ jobs:
         with:
           python-version: "3.13.9"
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
       - name: Lint
         run: |
           pip install ruff
-          ruff check app scripts analysis
+          ruff check app scripts analysis tests
+      - name: Test
+        # No secrets and no network: every test reads the committed CSV or feeds
+        # hand-built rows through the same functions the API uses.
+        run: pytest tests -q
