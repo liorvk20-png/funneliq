@@ -427,6 +427,85 @@ By tier: Low 57.5%, Mid 69.8%, High 66.3%.
    that separates the two readings, and it costs one quarter of data rather
    than a year of a wrong policy.
 
+## Package 6 — budget allocation
+
+### The trap this package had to avoid
+
+The profit model from the other packages reads `num_leads`, `closed` and
+`calls_to_closed` — none of which exist when a budget is set. A simulator built
+on them would answer "given how the campaign went, what did it earn", which is
+not a question a planner can ask.
+
+So the planning model sees only the decision variable: `ad_budget` and its tier.
+Deliberately weaker, and the only one whose inputs a planner actually has.
+
+### What each budget level returned
+
+| budget | campaigns | avg profit | per shekel | tier |
+|--------|-----------|------------|------------|------|
+| 500 | 109 | 1,110 | 2.22x | Low |
+| 800 | 154 | 1,285 | 1.61x | Low |
+| 1,000 | 219 | 2,240 | 2.24x | Low |
+| 1,500 | 298 | 3,275 | 2.18x | Low |
+| **2,000** | 410 | 21,749 | **10.87x** | Mid |
+| 2,500 | 346 | 22,013 | 8.81x | Mid |
+| 3,000 | 331 | 21,980 | 7.33x | Mid |
+| 4,000 | 316 | 21,477 | 5.37x | Mid |
+| 5,000 | 314 | 21,725 | 4.35x | Mid |
+| 6,000 | 199 | 5,171 | 0.86x | High |
+| 8,000 | 124 | 5,492 | 0.69x | High |
+| 10,000 | 195 | 5,107 | 0.51x | High |
+| 15,000 | 113 | 5,247 | 0.35x | High |
+| 20,000 | 71 | 4,762 | 0.24x | High |
+
+**The curve peaks at 2,000 and collapses on both sides.** Every level from 6,000
+up returns under 1.00x — those campaigns consume more in ad spend than they
+produce in profit.
+
+The mechanism is visible in the profit column: average profit is roughly flat at
+~21,700 across the whole Mid range, and roughly flat at ~5,200 across the whole
+High range. Spending more inside a tier buys almost nothing; crossing from Mid to
+High costs three quarters of the return.
+
+### Strategy comparison on a 1,000,000 pot
+
+| strategy | campaigns | expected profit | per shekel |
+|----------|-----------|-----------------|------------|
+| current mix | — | 2,723,601 | 2.72x |
+| **all at 2,000** | 500 | **10,874,388** | **10.87x** |
+| all at 2,500 | 400 | 8,805,077 | 8.81x |
+| all at 5,000 | 200 | 4,345,028 | 4.35x |
+| all at 20,000 | 50 | 238,111 | 0.24x |
+
+**A 299% gain on the same money**, with no new spend and no change to how the
+funnel is run.
+
+### Caveats, because that number is too good to hand over unqualified
+
+**a) Saturation is unmodelled and is the most likely failure.** The strategy
+assumes the market absorbs 500 campaigns at 2,000. The dataset holds 410 at that
+level. Nothing here shows demand scales that far.
+
+**b) Variance is high within a level.** At 2,000 the spread is 7,608 against a
+mean of 21,749. Any single campaign is a poor bet even where the average is
+excellent; the case rests on running many.
+
+**c) Budget is the only lever modelled.** Package 5 found 39% of leads never
+answer. Fixing that changes every number in this table and is not a budget
+decision.
+
+**d) The five extreme profits are included**, as decided in Package 1. They sit
+in Low and Mid and lift those averages slightly.
+
+### Recommendation
+
+**Move spend toward Mid and out of High — as a shift, not a switch.**
+
+Move a quarter of High-tier spend down a tier, measure for a quarter, and
+continue only if the curve holds. Caveat (a) is the real risk, and a staged move
+is what makes it survivable: if demand does not scale, a quarter of the budget
+finds out instead of all of it.
+
 ## Open questions for later packages
 
 - Does the Mid-tier advantage survive controlling for lead volume, or is
