@@ -5,12 +5,25 @@ from dotenv import load_dotenv
 # platform supplies the same variables directly.
 load_dotenv()
 
-from fastapi import Depends, FastAPI, HTTPException, status  # noqa: E402
+import io  # noqa: E402
+from datetime import date  # noqa: E402
+
+import pandas as pd  # noqa: E402
+from fastapi import (  # noqa: E402
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from app.auth import get_current_user_token  # noqa: E402
 from app.config import require_env  # noqa: E402
 from app.db import get_user_client  # noqa: E402
+from app.ingest import MAX_BYTES, inspect, to_records  # noqa: E402
 from app.predict import predict  # noqa: E402
 
 app = FastAPI(title="FunnelIQ")
@@ -393,6 +406,186 @@ def me(token: str = Depends(get_current_user_token)):
         "recordCount": records.count or 0,
         "uploads": uploads,
     }
+
+
+# =====================================================================
+# UPLOADS
+# =====================================================================
+# The product is an empty engine until a company can put its own data in it.
+# Everything here writes through the caller's own token, so the WITH CHECK
+# clause on funnel_records is the thing that decides a row's owner — this code
+# proposes a company_id and the database is free to refuse it.
+
+
+def _company_id(client) -> str:
+    profiles = client.table("profiles").select("company_id").execute().data
+    if not profiles:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This account has no company attached to it, so there is nowhere to "
+            "put the data. Run migrations/003_backfill_profiles.sql.",
+        )
+    return profiles[0]["company_id"]
+
+
+def _read_csv(upload: UploadFile) -> pd.DataFrame:
+    """
+    The bytes a browser sent, as a DataFrame — or a 400 saying why not.
+
+    Two encodings are tried because both are normal. Excel on a Hebrew Windows
+    machine writes cp1255, and a UTF-8 export from almost anything else carries
+    a BOM that utf-8-sig strips and plain utf-8 turns into a corrupted first
+    header. Guessing wrong here renames a column and the file is rejected for
+    the wrong reason entirely.
+    """
+    data = upload.file.read(MAX_BYTES + 1)
+    if len(data) > MAX_BYTES:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            f"הקובץ גדול מ־{MAX_BYTES // 1024 // 1024}MB.",
+        )
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "לא התקבל קובץ.")
+
+    last: Exception | None = None
+    for encoding in ("utf-8-sig", "cp1255"):
+        try:
+            return pd.read_csv(io.BytesIO(data), encoding=encoding)
+        except Exception as exc:
+            last = exc
+    raise HTTPException(
+        status.HTTP_400_BAD_REQUEST,
+        f"לא הצלחנו לקרוא את הקובץ כ־CSV. פרטים: {last}",
+    )
+
+
+@app.post("/api/uploads/preview")
+def preview_upload(
+    file: UploadFile = File(...),
+    token: str = Depends(get_current_user_token),
+):
+    """
+    Check a file and write nothing.
+
+    Separate from the save on purpose: a company should see what is wrong with
+    its export, and what the product intends to store, before anything lands in
+    its workspace. The browser keeps the file and sends it again to save, so
+    there is no half-finished upload sitting on the server between the two
+    steps waiting to be cleaned up.
+    """
+    get_user_client(token)  # rejects a bad token before any parsing work
+    report, _ = inspect(_read_csv(file))
+    return report.as_dict()
+
+
+@app.post("/api/uploads")
+def create_upload(
+    file: UploadFile = File(...),
+    period: str = Form(...),
+    token: str = Depends(get_current_user_token),
+):
+    """
+    Store one month of campaigns.
+
+    The file is validated again rather than trusting the preview: the preview
+    is a courtesy to the person, not a permission the browser holds. Nothing
+    stops a caller skipping it.
+    """
+    try:
+        month = date.fromisoformat(period if len(period) > 7 else period + "-01")
+    except ValueError:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "תאריך לא תקין. הפורמט הוא YYYY-MM."
+        ) from None
+
+    client = get_user_client(token)
+    company_id = _company_id(client)
+
+    # Re-uploading a month is refused rather than merged or silently doubled.
+    # Both of those produce a table nobody can reason about; deleting the month
+    # first is one extra click and leaves an obvious trail in the history.
+    existing = (client.table("uploads").select("id,filename")
+                .eq("period", month.isoformat()).execute().data)
+    if existing:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"כבר קיימת העלאה לחודש הזה ({existing[0].get('filename') or 'ללא שם'}). "
+            "מחק אותה קודם מהיסטוריית ההעלאות, ואז העלה מחדש.",
+        )
+
+    report, clean = inspect(_read_csv(file))
+    if not report.ok:
+        # 422: the request was well-formed and the file inside it was not.
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            {"message": "הקובץ לא עבר בדיקה", **report.as_dict()})
+
+    upload = client.table("uploads").insert({
+        "company_id": company_id,
+        "period": month.isoformat(),
+        "filename": file.filename,
+        "row_count": report.rows,
+        "status": "analysing",
+    }).execute().data[0]
+
+    try:
+        records = to_records(clean, company_id, upload["id"])
+        for i in range(0, len(records), 500):
+            client.table("funnel_records").insert(records[i:i + 500]).execute()
+    except Exception as exc:
+        # A half-written month left marked "ready" would be presented as a
+        # complete picture. Recording the failure, and removing whatever did
+        # land, is what keeps the dashboard honest about what it is describing.
+        client.table("funnel_records").delete().eq("upload_id", upload["id"]).execute()
+        client.table("uploads").update(
+            {"status": "failed", "error": str(exc)[:500]}
+        ).eq("id", upload["id"]).execute()
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "השמירה נכשלה באמצע והשורות שכן נשמרו הוסרו. אפשר לנסות שוב.",
+        ) from exc
+
+    client.table("uploads").update({"status": "ready"}).eq("id", upload["id"]).execute()
+    return {"uploadId": upload["id"], "period": month.isoformat(), **report.as_dict()}
+
+
+@app.patch("/api/company")
+def rename_company(payload: dict, token: str = Depends(get_current_user_token)):
+    """
+    Rename the caller's own workspace.
+
+    Nothing here checks which company is being renamed, and that is deliberate:
+    the UPDATE policy added in 004 restricts the statement to the caller's own
+    row, so an id supplied by a caller cannot widen what the update touches.
+    """
+    name = str(payload.get("name", "")).strip()
+    if not 1 <= len(name) <= 120:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "שם החברה חייב להיות בין תו אחד ל־120 תווים.")
+    client = get_user_client(token)
+    updated = (client.table("companies").update({"name": name})
+               .eq("id", _company_id(client)).execute().data)
+    if not updated:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "אין הרשאה לשנות את שם החברה.")
+    return updated[0]
+
+
+@app.delete("/api/uploads/{upload_id}")
+def delete_upload(upload_id: str, token: str = Depends(get_current_user_token)):
+    """
+    Undo one month.
+
+    The rows go with it. funnel_records has no UPDATE policy by design —
+    correcting a month means deleting it and uploading again, which leaves a
+    record of both actions instead of quietly changing history in place.
+    """
+    client = get_user_client(token)
+    found = client.table("uploads").select("id").eq("id", upload_id).execute().data
+    if not found:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "אין העלאה כזו.")
+
+    removed = client.table("funnel_records").delete().eq("upload_id", upload_id).execute()
+    client.table("uploads").delete().eq("id", upload_id).execute()
+    return {"deleted": upload_id, "rowsRemoved": len(removed.data)}
 
 
 # Mounted LAST on purpose: a mount at "/" catches every path the routes above
