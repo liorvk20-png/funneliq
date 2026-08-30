@@ -50,7 +50,8 @@ analysis/       one script per work package, each reproducible on its own
   features.py   the single feature definition; enforces the leakage rule by construction
 models/         trained artifacts, committed so a deploy need not retrain
 scripts/        CSV loader
-migrations/     schema history; 002 turns one company into an engine anyone can join
+migrations/     schema history; 002 turns one company into an engine anyone can join,
+                003 backfills workspaces for accounts that predate the trigger
 ```
 
 ## Running it locally
@@ -87,12 +88,24 @@ python analysis/package6_budget.py          # Package 6
 
 ## Loading the data
 
+Rows belong to a company, so the loader has to be told which one. It takes the
+email of a user in that company and looks the workspace up through `profiles`:
+
 ```bash
-python scripts/load_csv_to_supabase.py funnel_marketing_data.csv
+python scripts/load_csv_to_supabase.py --company you@example.com
 ```
 
-Clears the table and reloads, so re-running never duplicates. Requires
-`SUPABASE_SECRET_KEY`. Expect `Loaded 3500 rows`.
+Replaces **that company's** rows and leaves nothing else in the table touched,
+so re-running never duplicates and never reaches another customer's data. Each
+run records itself in `uploads`, marked `failed` rather than `ready` if the
+insert breaks part-way. Requires `SUPABASE_SECRET_KEY`. Expect
+`Loaded 3,500 rows into <company>`.
+
+If it reports no profile for that email, the account predates the sign-up
+trigger: run `migrations/003_backfill_profiles.sql` in the Supabase SQL editor
+first. An account with no profile authenticates fine and then sees an empty
+product, because `current_company_id()` returns NULL and every policy fails
+closed.
 
 ## Isolation between companies
 
