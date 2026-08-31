@@ -84,7 +84,8 @@ def test_the_static_mount_has_not_swallowed_the_api():
 # cheapest checks that would have caught the two ways it has actually broken:
 # a route wired in the sidebar with no page behind it, and an element the
 # JavaScript looks up by id that no longer exists in the markup.
-PAGE_KEYS = ["home", "data", "predict", "funnel", "budget", "upload", "profile"]
+PAGE_KEYS = ["home", "advice", "data", "funnel", "budget", "predict",
+             "upload", "profile"]
 
 
 @pytest.fixture(scope="module")
@@ -361,6 +362,13 @@ def test_a_network_outage_is_not_reported_as_a_bad_token(monkeypatch):
     "function wireUpload()",
     "function wireProfile()",
     "function monthPicker(",
+    "function campaignTableCard()",
+    "function tile(",
+    "const GLOSSARY",
+    "function barChart(",
+    "function funnelChart(",
+    "function donut(",
+    "function lineChart(",
     "function showForgot()",
     "function showReset(",
     "const PROFILE_TABS",
@@ -449,3 +457,100 @@ def test_a_long_save_says_it_is_working(dashboard):
     handler = _save_handler(dashboard)
     assert "spinner" in handler
     assert "שומרים" in handler or "שומר" in handler
+
+# --------------------------------------------------------- staying signed in
+def test_a_login_hands_back_something_to_renew_with(dashboard):
+    """
+    Supabase access tokens last an hour and nothing renewed them, so an hour
+    into the working day the next click ended the session. The report was
+    "clicking predictions logged me out"; the cause was that /api/login never
+    returned the refresh token, so the browser could not have renewed even if
+    it had tried.
+    """
+    from pathlib import Path
+    source = (Path(__file__).resolve().parent.parent / "app" / "main.py").read_text()
+    session = source.split("def _session(")[1].split("@app.")[0]
+    assert '"refresh_token"' in session
+
+
+def test_the_browser_renews_instead_of_signing_out(dashboard):
+    assert "freshSession" in dashboard
+    assert "/api/token/refresh" in dashboard
+    # One renewal at a time: Supabase retires a refresh token on first use, so
+    # three panels loading together would kill each other's session.
+    assert "REFRESHING" in dashboard
+
+
+def test_no_request_still_reads_the_session_without_renewing(dashboard):
+    """
+    Every authenticated call has to go through freshSession. One left on
+    loadSession is one endpoint that still throws people out after an hour.
+    """
+    script = dashboard.rsplit("<script>", 1)[1]
+    for line in script.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("//", "*")):
+            continue
+        if stripped.startswith("function loadSession"):
+            continue          # its own definition
+        if "loadSession()" in stripped:
+            assert "const live = loadSession()" in stripped, (
+                f"loadSession used outside freshSession: {stripped}")
+
+
+# ------------------------------------------------- what the customer reads
+# The person using this runs a marketing department, not a statistics one.
+# Words that describe how the models work describe our problem, not theirs.
+FORBIDDEN_JARGON = [
+    "ציון שגיאה", "טעות ממוצעת", "אומן על", "PR-AUC", "MAE",
+    "baseline", "confidence_label", "contribution_share",
+]
+
+
+@pytest.mark.parametrize("word", FORBIDDEN_JARGON)
+def test_no_training_vocabulary_reaches_the_screen(dashboard, word):
+    """
+    A customer was shown an error score, a comparison against guessing, and how
+    many rows a model trained on. None of it told them anything about their
+    campaigns, and all of it invited the question "what does that mean".
+    """
+    import re
+    script = dashboard.rsplit("<script>", 1)[1]
+    code = re.sub(r"/\*.*?\*/", "", script, flags=re.S)
+    code = re.sub(r"(?m)//.*$", "", code)
+    # Only strings the person sees, not field names the code reads.
+    shown = re.findall(r'[>"`]([^<>"`]*[֐-׿][^<>"`]*)[<"`]', code)
+    for text in shown:
+        assert word not in text, f"{word!r} appears in {text[:70]!r}"
+
+
+def test_every_figure_on_the_dashboard_has_a_plain_explanation(dashboard):
+    """
+    A number with no sentence under it is a number the reader has to already
+    understand. The glossary is the one place that pairs them.
+    """
+    glossary = dashboard.split("const GLOSSARY = {")[1].split("\n};")[0]
+    for key in ("leads", "closed", "spend", "profit", "cost_per_lead",
+                "answer_rate", "close_rate", "ltv_months", "return_per_shekel"):
+        assert f"{key}: {{" in glossary, f"{key} has no plain-language entry"
+    # The one the customer asked about twice, by name.
+    assert "כמה חודשים בממוצע לקוח ממשיך לשלם" in dashboard
+
+
+def test_the_campaign_table_shows_everything_not_a_sample(dashboard):
+    """
+    Ten rows out of a few hundred answer no question anybody has — you cannot
+    find your worst campaign in them, and they were the ten oldest.
+    """
+    assert "fillSample" not in dashboard
+    assert "/api/funnel-records/sample" not in dashboard
+    assert "TABLE_PAGE_SIZE" in dashboard
+    assert 'data-sort=' in dashboard and 'data-filter=' in dashboard
+
+
+def test_the_pages_draw_pictures_and_not_only_tables(dashboard):
+    for chart in ("funnelChart(", "barChart(", "donut(", "lineChart("):
+        assert chart in dashboard
+    # And each one is readable without seeing it.
+    assert dashboard.count('role="img"') >= 4
+    assert dashboard.count("aria-label=") >= 8

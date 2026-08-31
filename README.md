@@ -89,6 +89,37 @@ python analysis/package5_followup.py        # Package 5
 python analysis/package6_budget.py          # Package 6
 ```
 
+## Who the interface is written for
+
+Somebody who runs a marketing department, and has not asked what LTV stands
+for. Every figure carries its own sentence, from one glossary, so the name and
+the explanation cannot drift apart — "כמה זמן לקוח נשאר" is followed by "כמה
+חודשים בממוצע לקוח ממשיך לשלם לפני שהוא עוזב", because the field name never
+answered that and the question was asked twice.
+
+Nothing describing how the models work appears on screen any more: no error
+score, no comparison against guessing, no row counts. Those describe our
+problem. What is left is one sentence saying whether a prediction can be
+relied on, and the predictions that can — a target that did not beat guessing
+shows no number at all, because a greyed-out figure with a caveat beside it
+still reads as a prediction.
+
+The campaigns table shows every campaign, sortable, filterable and searchable,
+a page at a time. It replaced a fixed sample of ten rows, which answered no
+question anyone has: you could not find your worst campaign in it, could not
+check the one you remembered, and could not tell whether the ten were
+representative. They were the ten oldest.
+
+Charts are hand-drawn SVG — four functions rather than a hundred kilobytes of
+library and a supply chain. Each carries a text alternative, because a picture
+of a number is useless to a screen reader unless the number is written down too.
+
+"מה כדאי לעשות" is the page the rest of the product exists to fill. Every other
+page says what happened; that one says what to change, ordered by how much it is
+worth, with the figure behind each suggestion shown underneath it. Nothing there
+is invented in the browser: an item disappears when its number does, rather than
+degrading into a generic tip.
+
 ## The interface
 
 One HTML file, no build step and no framework. Everything visual comes from the
