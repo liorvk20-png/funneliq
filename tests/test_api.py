@@ -635,8 +635,44 @@ def test_campaign_rows_carry_the_import_they_came_from(dashboard):
     which month it is."""
     from pathlib import Path
     source = (Path(__file__).resolve().parent.parent / "app" / "main.py").read_text()
-    assert '"uploadId": r.get("upload_id")' in source
+    assert '"uploadId": upload' in source
     assert "PERIOD" in dashboard and "periodTotals" in dashboard
+
+
+def test_a_campaign_is_numbered_within_its_own_file(dashboard):
+    """
+    funnel_records.id is a bigserial shared by every company in the database,
+    so a customer's fortieth campaign could be numbered 9,134 — meaningless in
+    their account, and a quiet report of how much data the whole system has
+    seen. Each row carries its line number inside the file it came from, which
+    is a figure somebody can look up in their own spreadsheet.
+    """
+    from pathlib import Path
+    source = (Path(__file__).resolve().parent.parent / "app" / "main.py").read_text()
+    assert '"line": line_numbers[upload]' in source
+    # The database id still travels, because scoring needs it.
+    assert '"id": r["id"]' in source
+    # But the table shows the line number.
+    columns = dashboard.split("const TABLE_COLUMNS = [")[1].split("\n];")[0]
+    assert 'key: "line"' in columns
+    assert 'r.id' not in columns
+
+
+def test_no_chart_escapes_the_markup_its_labels_carry(dashboard):
+    """
+    money() wraps its figure in a <bdi> so the currency sign stays on the right
+    side of the digits inside Hebrew. Running that through esc() printed the
+    tag across the chart — '..." dir="ltr">₪800</bdi>' beside every bar.
+    """
+    for chart in ("function barChart(", "function funnelChart(",
+                  "function donut(", "function lineChart("):
+        body = dashboard.split(chart)[1].split("\n}")[0]
+        assert "esc(i.label)" not in body
+        assert "esc(s.label)" not in body
+        assert "esc(p.label)" not in body
+        # The text alternative still has to be text, so markup is stripped
+        # rather than escaped.
+        assert "plain(" in body
 
 
 def test_the_recommendations_show_their_working_on_request(dashboard):

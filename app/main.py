@@ -396,8 +396,9 @@ def insights(token: str = Depends(get_current_user_token)):
     Read through the user's own token, so RLS governs this the same way it
     governs the raw rows.
     """
+    client = get_user_client(token)
     rows = _fetch_all(
-        get_user_client(token),
+        client,
         "id,upload_id,ad_budget,budget_tier,num_leads,leads_answered,ltv_months,cumulative_profit,"
         "customer_acquisition_cost,"
         "purchased,upsell,referred,closed,not_closed,calls_to_closed,calls_to_not_closed,"
@@ -420,16 +421,43 @@ def insights(token: str = Depends(get_current_user_token)):
         # Enough fields for the picker to filter on how a campaign performed,
         # not only on what it cost. Derived rates are computed in the browser so
         # the payload stays raw and one definition of each rate lives in one place.
-        "records": [{
-            "id": r["id"], "budget": r["ad_budget"], "tier": r["budget_tier"],
+        "records": _records(client, rows),
+    }
+
+
+def _records(client, rows) -> list[dict]:
+    """
+    The campaign index the picker and the table read.
+
+    `id` is a bigserial shared by every company in the database, so a customer's
+    fortieth campaign could be numbered 9,134 — a figure that means nothing in
+    their account and quietly reports how much data the whole system has seen.
+    Each row carries its line number inside the file it came from instead, which
+    is a number somebody can look up in their own spreadsheet.
+
+    The database id still travels, because scoring a campaign needs it; it is
+    simply not what gets shown.
+    """
+    periods = {u["id"]: u["period"] for u in
+               client.table("uploads").select("id,period").execute().data}
+
+    line_numbers: dict[str, int] = {}
+    out = []
+    # Ordered by id within each import, which is the order the file was read in.
+    for r in sorted(rows, key=lambda x: x["id"]):
+        upload = r.get("upload_id")
+        line_numbers[upload] = line_numbers.get(upload, 0) + 1
+        out.append({
+            "id": r["id"],
+            "line": line_numbers[upload],
+            "period": periods.get(upload),
+            "budget": r["ad_budget"], "tier": r["budget_tier"],
             "leads": r["num_leads"], "answered": r["leads_answered"],
             "closed": r["closed"], "cac": r["customer_acquisition_cost"],
             "calls": r["calls_to_closed"],
-            # Which import this row arrived in, so the overview can be filtered
-            # to one month without a second request per period.
-            "uploadId": r.get("upload_id"),
-        } for r in rows],
-    }
+            "uploadId": upload,
+        })
+    return out
 
 
 def _mean(values):
