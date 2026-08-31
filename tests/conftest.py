@@ -41,3 +41,22 @@ def rows(csv) -> list[dict]:
         lambda b: "Low" if b <= 1500 else ("Mid" if b <= 5000 else "High"))
     df.insert(0, "id", range(1, len(df) + 1))
     return df.astype(object).where(pd.notnull(df), None).to_dict(orient="records")
+
+
+@pytest.fixture
+def unreachable_jwks_stubbed(monkeypatch):
+    """
+    Make the key lookup fail the way a real invalid token does.
+
+    The tests run against a SUPABASE_URL that resolves to nothing, so without
+    this the key fetch raises a connection error and any test about token
+    validity is really a test about DNS.
+    """
+    import jwt
+
+    from app import auth
+
+    def no_such_key(_token):
+        raise jwt.exceptions.PyJWKClientError("Unable to find a signing key")
+
+    monkeypatch.setattr(auth._jwk_client, "get_signing_key_from_jwt", no_such_key)

@@ -31,9 +31,39 @@ def test_gated_without_a_token(path):
 
 
 @pytest.mark.parametrize("path", GATED)
-def test_gated_with_a_bad_token(path):
+def test_gated_with_a_bad_token(path, unreachable_jwks_stubbed):
+    """
+    A token that does not verify is a 401.
+
+    This test used to pass without ever verifying anything. SUPABASE_URL in the
+    test environment points at a domain that does not exist, so the JWKS fetch
+    failed and the failure was caught by the same clause as an invalid token —
+    the assertion below held for a reason that had nothing to do with tokens.
+    Stubbing the fetch is what makes it a test of the thing it names.
+    """
     r = client.get(path, headers={"Authorization": "Bearer not.a.real.token"})
     assert r.status_code == 401
+
+
+@pytest.mark.parametrize("path", GATED)
+def test_a_key_server_we_cannot_reach_does_not_sign_anyone_out(path, monkeypatch):
+    """
+    The key cache is empty on a freshly started container, so the first
+    authenticated request after every deploy fetches over the network. A blip
+    there is our problem, not a bad token: answering 401 would clear the
+    person's session and tell them it had expired.
+    """
+    import jwt
+
+    from app import auth
+
+    def boom(_token):
+        raise jwt.exceptions.PyJWKClientConnectionError("cannot reach the key server")
+
+    monkeypatch.setattr(auth._jwk_client, "get_signing_key_from_jwt", boom)
+    r = client.get(path, headers={"Authorization": "Bearer not.a.real.token"})
+    assert r.status_code == 503
+    assert "רגע" in r.json()["detail"]
 
 
 def test_config_never_exposes_the_secret_key():
@@ -110,3 +140,16 @@ def test_the_browser_no_longer_talks_to_supabase_auth_directly(dashboard):
     assert "/auth/v1/token" not in dashboard
     assert "/auth/v1/signup" not in dashboard
     assert '"/api/login"' in dashboard and '"/api/signup"' in dashboard
+
+
+# ------------------------------------------------------- the column mapping
+# The answers to the column questions arrive as a JSON form field. Whatever is
+# in it renames columns, so it is checked rather than trusted — ingest verifies
+# every value against the file, and these cover the shape of the field itself.
+@pytest.mark.parametrize("raw", ["not json at all", "[1, 2, 3]", '"a string"'])
+def test_a_malformed_column_mapping_is_refused(raw, unreachable_jwks_stubbed):
+    r = client.post("/api/uploads/preview", data={"mapping": raw},
+                    files={"file": ("f.csv", b"a,b\n1,2\n")})
+    # 401 first: the token check runs before the body is looked at, which is
+    # the order that keeps an unauthenticated caller from reaching the parser.
+    assert r.status_code == 401

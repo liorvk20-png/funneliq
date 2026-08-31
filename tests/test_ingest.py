@@ -50,12 +50,19 @@ def test_headers_are_matched_the_way_a_person_reads_them(written):
     assert inspect(df)[0].ok
 
 
-def test_a_missing_column_is_an_error_that_names_it():
+def test_a_column_we_cannot_place_becomes_a_question_not_a_dead_end():
+    """
+    The person has never seen our column names, so the message names the column
+    in the words they were shown, and the report carries a question the
+    interface turns into a dropdown.
+    """
     df = good_frame().drop(columns=["closed"])
     report, clean = inspect(df)
     assert not report.ok and clean is None
     assert report.missing_columns == ["closed"]
-    assert "closed" in " ".join(report.errors)
+    assert "כמה עסקאות נסגרו" in " ".join(report.errors)
+    assert [q["column"] for q in report.questions] == ["closed"]
+    assert report.as_dict()["needsMapping"] is True
 
 
 def test_an_unknown_column_is_a_warning_not_a_rejection():
