@@ -20,9 +20,10 @@ from fastapi import (  # noqa: E402
 )
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
+from app.accounts import Ambiguous, email_for_company, looks_like_email, translate  # noqa: E402
 from app.auth import get_current_user_token  # noqa: E402
 from app.config import require_env  # noqa: E402
-from app.db import get_user_client  # noqa: E402
+from app.db import get_anon_client, get_service_client, get_user_client  # noqa: E402
 from app.ingest import MAX_BYTES, inspect, to_records  # noqa: E402
 from app.predict import predict  # noqa: E402
 
@@ -47,6 +48,94 @@ def config():
         "supabaseUrl": require_env("SUPABASE_URL"),
         "publishableKey": require_env("SUPABASE_PUBLISHABLE_KEY"),
     }
+
+
+# =====================================================================
+# ACCOUNTS
+# =====================================================================
+# Sign-in and sign-up run through the server rather than straight from the
+# browser to Supabase. Two reasons, and only one of them is cosmetic: every
+# refusal reaches the person in Hebrew from a single place, and signing in by
+# company name needs a lookup the browser is not allowed to make.
+
+
+def _session(auth_response) -> dict:
+    """The parts of a Supabase session the browser actually stores."""
+    session = auth_response.session
+    if session is None:
+        # Sign-up with email confirmation switched on: the account exists and
+        # there is no session until the link is clicked.
+        return {"pending": True}
+    return {
+        "access_token": session.access_token,
+        "expires_in": session.expires_in,
+        "user": {"email": auth_response.user.email if auth_response.user else None},
+    }
+
+
+@app.post("/api/login")
+def login(payload: dict):
+    identifier = str(payload.get("identifier", "")).strip()
+    password = str(payload.get("password", ""))
+    if not identifier or not password:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש למלא את שני השדות.")
+
+    email = identifier
+    if not looks_like_email(identifier):
+        try:
+            # The one place a request handler reaches for the secret key. It is
+            # not reading anyone's data: there is no signed-in user yet, so
+            # there is no RLS context to respect, and the address it finds is
+            # used to authenticate and never returned. Doing this lookup in the
+            # browser, or through a public endpoint, would turn a guessed
+            # company name into someone's email address.
+            email = email_for_company(get_service_client(), identifier)
+        except Ambiguous:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "יש יותר מחשבון אחד עם שם החברה הזה. התחבר עם כתובת האימייל שלך.",
+            ) from None
+        if email is None:
+            # Deliberately the same refusal a wrong password gets, so that
+            # guessing company names reveals nothing about which ones exist.
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED,
+                translate("Invalid login credentials"),
+            )
+
+    try:
+        result = get_anon_client().auth.sign_in_with_password(
+            {"email": email, "password": password}
+        )
+    except Exception as exc:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                            translate(str(getattr(exc, "message", exc)))) from None
+    return _session(result)
+
+
+@app.post("/api/signup")
+def signup(payload: dict):
+    email = str(payload.get("email", "")).strip()
+    password = str(payload.get("password", ""))
+    company = str(payload.get("company", "")).strip()
+    if not email or not password or not company:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש למלא את כל השדות.")
+    if len(company) > 120:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "שם החברה ארוך מדי (עד 120 תווים).")
+    try:
+        # company_name travels in user metadata because the database trigger
+        # reads it from there to build the workspace. Nothing here creates a
+        # company; a request that skipped this field would produce an account
+        # named after its email domain.
+        result = get_anon_client().auth.sign_up({
+            "email": email, "password": password,
+            "options": {"data": {"company_name": company}},
+        })
+    except Exception as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            translate(str(getattr(exc, "message", exc)))) from None
+    return _session(result)
 
 
 @app.get("/api/funnel-records/sample")

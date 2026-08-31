@@ -22,10 +22,27 @@ def get_user_client(access_token: str) -> Client:
     return client
 
 
+def get_anon_client() -> Client:
+    """
+    Client with no user attached. Only for the auth calls that happen before
+    anyone is signed in — sign-in and sign-up. It carries the publishable key,
+    which grants nothing on its own, so a data read through it returns nothing
+    but the empty set RLS allows an anonymous caller.
+    """
+    return create_client(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
+
+
 def get_service_client() -> Client:
     """
-    Secret-key client. Bypasses RLS entirely. Used ONLY by server-side scripts
-    (the CSV loader) — never by request-handling code in main.py.
+    Secret-key client. Bypasses RLS entirely.
+
+    Used by server-side scripts (the CSV loader), and by exactly one request
+    handler: /api/login, to turn a company name into the address it belongs to.
+    That call runs before anyone is signed in, so there is no RLS context for it
+    to bypass, and the address it finds is used to authenticate and never
+    returned to the caller. Any other use in request-handling code is a bug —
+    a read on behalf of a signed-in user must go through get_user_client, so
+    that the database decides what they may see.
     """
     if not SUPABASE_SECRET_KEY:
         raise RuntimeError("SUPABASE_SECRET_KEY not set — this client is for scripts only.")
