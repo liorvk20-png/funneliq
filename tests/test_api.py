@@ -306,3 +306,44 @@ def test_the_theme_is_set_before_the_page_paints(dashboard):
     """
     head = dashboard.split("</head>")[0]
     assert "data-theme" in head and "prefers-color-scheme" in head
+
+
+@pytest.mark.parametrize("header", [
+    "Bearer notbase64atall",
+    "Bearer a.b.c",
+    "Bearer " + "x" * 40,
+    "Bearer ..",
+    "Bearer eyJhbGciOiJIUzI1NiJ9",
+])
+def test_a_malformed_token_is_refused_not_a_server_error(header):
+    """
+    A token that is not three base64 segments never reaches PyJWT's own
+    exceptions: base64url_decode raises binascii.Error first, which was not
+    caught and came back as 500. Anything a caller can put in a header is a bad
+    request, and a 500 on an unauthenticated route invites more of them.
+
+    Found by pointing a stale session at every endpoint, which is what a
+    browser does after a token expires and the tab is left open.
+    """
+    r = client.get("/api/me", headers={"Authorization": header})
+    assert r.status_code == 401, f"{header!r} produced {r.status_code}"
+
+
+def test_a_network_outage_is_not_reported_as_a_bad_token(monkeypatch):
+    """
+    PyJWKClientConnectionError inherits from PyJWTError, so a broad clause
+    ordered above it swallows an outage and returns 401 — signing the person
+    out over a fault on our side. This test exists because a later fix for
+    malformed tokens did exactly that, and only the ordering keeps both right.
+    """
+    import jwt
+
+    from app import auth
+
+    def unreachable(_token):
+        raise jwt.exceptions.PyJWKClientConnectionError("no route to host")
+
+    monkeypatch.setattr(auth._jwk_client, "get_signing_key_from_jwt", unreachable)
+    # A well-formed-looking token and a malformed one both hit the same outage.
+    for header in ("Bearer a.b.c", "Bearer garbage"):
+        assert client.get("/api/me", headers={"Authorization": header}).status_code == 503

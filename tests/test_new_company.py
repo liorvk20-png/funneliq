@@ -74,3 +74,27 @@ def test_followup_gap_needs_both_ends_of_the_range():
     f = _followup(CASES["fast closers only"])
     assert f["gapRaw"] is None
     assert f["explainedByQualityPct"] is None
+
+
+# ------------------------------------------------- found by simulating a user
+# Each of these came out of uploading generated campaign files through the real
+# endpoints rather than from reasoning about the code. All three returned a
+# plausible-looking failure that a customer could not have acted on.
+
+
+def test_a_campaign_with_no_budget_does_not_break_the_dashboard():
+    """
+    Return per shekel needs a shekel. One zero-budget row in an export used to
+    raise ZeroDivisionError while building the curve — taking down every panel
+    on the page, not just the budget one.
+    """
+    rows = [campaign(1, budget=0), campaign(2, budget=2000)]
+    b = _budget(rows)
+    assert [c["budget"] for c in b["curve"]] == [2000]
+    # The spend still counts toward the pot; it was spent, it just returned
+    # nothing per shekel because there were no shekels.
+    assert b["pot"] == 2000
+
+
+def test_a_book_of_campaigns_with_no_budget_at_all_is_survivable():
+    assert _budget([campaign(i, budget=0) for i in range(1, 6)])["curve"] == []

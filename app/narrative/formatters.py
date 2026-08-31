@@ -14,7 +14,12 @@ from collections.abc import Callable
 
 from app.findings.metrics import metric
 from app.findings.schema import Direction, Finding
-from app.narrative.hebrew import dimension_phrase, label_after_preposition, verb
+from app.narrative.hebrew import (
+    agree,
+    dimension_phrase,
+    label_after_preposition,
+    verb,
+)
 
 # How a number is isolated from the Hebrew around it. The default is plain
 # text, for storage and for snapshot tests; the HTML renderer passes the other.
@@ -100,6 +105,9 @@ def render_value(spec: str, finding: Finding, wrap: Callable[[str], str]) -> str
             return verb(definition, Direction.DOWN)
         if fmt == "verb_delta":
             return verb(definition, finding.direction or Direction.FLAT)
+        # {m|agree:יציב} -> יציב or יציבה, whichever this metric takes.
+        if fmt.startswith("agree:"):
+            return agree(fmt.split(":", 1)[1], definition)
         return None
     if field == "d" and fmt == "dim":
         return dimension_phrase(finding.dimension_path)
