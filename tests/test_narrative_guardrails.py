@@ -188,3 +188,72 @@ def test_an_unknown_operator_stops_matching_rather_than_the_report():
 
 def test_rule_keys_are_unique():
     assert len(RULES_BY_KEY) == len(RULES)
+
+
+# ── Hebrew agreement ─────────────────────────────────────────────────────
+# Words that change form with the gender of what they describe. A template that
+# writes one of them literally is correct for half the metrics and wrong for the
+# other half, and renders without complaint either way — which is how "העלות
+# לליד יציב יחסית" survived a full simulation that checked structure and never
+# read the sentence.
+GENDERED_WORDS = ["יציב", "עומד", "הגיע", "חצה", "נותר", "נמצא", "חזר"]
+
+
+@pytest.mark.parametrize("word", GENDERED_WORDS)
+def test_no_template_hardcodes_a_word_that_must_agree_with_the_metric(word):
+    for rule in RULES:
+        template = rule.template_he
+        for occurrence in re.finditer(rf"(?<![א-ת]){word}(?![א-ת])", template):
+            before = template[:occurrence.start()]
+            # Inside an {m|agree:...} placeholder is exactly where it belongs.
+            assert before.rstrip().endswith("agree:") or "{m|" not in template, (
+                f"{rule.rule_key} writes {word!r} literally in a sentence that "
+                f"also names a metric: {template}")
+
+
+@pytest.mark.parametrize("metric_key,expected", [
+    ("cost_per_lead", "יציבה"),   # עלות is feminine
+    ("return_per_shekel", "יציבה"),
+    ("close_rate", "יציב"),       # שיעור is masculine
+    ("profit", "יציב"),
+])
+def test_a_word_agrees_with_the_metric_it_describes(metric_key, expected):
+    from app.findings.metrics import metric
+    from app.narrative.hebrew import agree
+    assert agree("יציב", metric(metric_key)) == expected
+
+
+def test_a_word_nobody_checked_drops_the_rule_rather_than_guessing():
+    """
+    An unlisted word would otherwise render in whichever gender the template
+    author happened to type, and be wrong for half the metrics silently.
+    """
+    from app.findings.metrics import metric
+    from app.narrative.hebrew import agree
+    assert agree("מסתובב", metric("cost_per_lead")) is None
+
+
+@pytest.mark.parametrize("preposition", ["ב", "ל", "כ", "מ"])
+def test_a_preposition_never_doubles_the_definite_article(preposition):
+    """
+    ב + הרווח is ברווח; "בהרווח" is not a word. The label already carries the
+    article, so a template attaching a preposition must use label_after_b.
+
+    Checked on the placeholder rather than by scanning for "בה" — a first
+    attempt did that and flagged בהתייקרות, בהשפעה and בהתאם, all of them
+    ordinary words. The bug class is a preposition glued to a raw label, and
+    that is what this looks for.
+    """
+    for rule in RULES:
+        assert f"{preposition}{{m|label}}" not in rule.template_he, (
+            f"{rule.rule_key} attaches {preposition!r} to the raw label; "
+            "use {m|label_after_b}")
+
+
+def test_the_prefixed_form_actually_drops_the_article():
+    from app.narrative.hebrew import label_after_preposition as bare
+    assert bare("הרווח") == "רווח"
+    assert bare("התשואה לשקל") == "תשואה לשקל"
+    # No leading article to drop, and nothing removed from the middle.
+    assert bare("שיעור המענה") == "שיעור המענה"
+    assert bare("מספר הלידים") == "מספר הלידים"

@@ -32,6 +32,37 @@ VERBS: dict[tuple[VerbFamily, Direction, Gender], str] = {
 # What a metric does when it does not move. Same agreement problem, no direction.
 FLAT = {Gender.M: "נותר יציב", Gender.F: "נותרה יציבה"}
 
+# Any other word in a template that has to agree with the metric.
+#
+# The verb table above covers movement, and templates then reached for other
+# words directly: "{m|label} יציב", "{m|label} עומד על", "{m|label} חצה את הסף".
+# Every one of those is wrong for a feminine metric, and every one of them
+# rendered without complaint — "העלות לליד יציב יחסית" came out of a full
+# simulation run that checked structure and never read the Hebrew.
+AGREEING = {
+    "יציב": "יציבה",
+    "עומד": "עומדת",
+    "הגיע": "הגיעה",
+    "חצה": "חצתה",
+    "נותר": "נותרה",
+    "נמצא": "נמצאת",
+    "חזר": "חזרה",
+}
+
+
+def agree(word: str, definition: MetricDefinition) -> str | None:
+    """
+    One word, in the form the metric's gender requires.
+
+    Returns None for a word that is not in the table, so the rule is dropped and
+    logged rather than rendered in whichever gender the author happened to type.
+    A template asking for agreement on a word nobody has checked is a template
+    that will be wrong half the time.
+    """
+    if word not in AGREEING:
+        return None
+    return AGREEING[word] if definition.gender_he == Gender.F else word
+
 
 def verb(definition: MetricDefinition, direction: Direction) -> str:
     if direction == Direction.FLAT:

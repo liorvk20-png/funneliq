@@ -111,6 +111,55 @@ is not laziness: PostgREST rejects the entire query if one named column is
 missing, and `/api/me` runs on every sign-in — naming `logo_b64` there took the
 product down for every user between a deploy and its migration. A test pins it.
 
+## Simulating a customer
+
+Two scripts drive the real endpoints against the real database, the way a
+company would, and check every answer against an independent calculation:
+
+```bash
+uvicorn app.main:app --port 8899          # in another terminal
+python scripts/simulate_customer_journey.py
+python scripts/simulate_edge_cases.py
+```
+
+Both create throwaway accounts and delete them afterwards, including on
+failure. They exist because status codes were never the problem here: every bug
+that reached this product returned 200 — a thousand rows averaged as if they
+were three thousand, a picker wired to ten campaigns, sums across the whole
+book labelled as one month. So the journey script recomputes each figure with
+pandas and compares, and prints both when they differ.
+
+The edge-case script covers what a real export contains rather than what the
+code expects: three encodings, thousands separators, currency symbols, blanks,
+unknown columns, duplicate rows, arithmetic that does not add up, a month of
+one campaign, a month of all zeros, malformed periods, hostile column mappings,
+and a stale session pointed at every endpoint.
+
+Four defects came out of the first run and none of them were visible from the
+code:
+
+`1,200` — how Excel writes a budget — was rejected as "not a number", so a real
+first upload would have failed on a file the person can see is fine.
+
+A single zero-budget row raised ZeroDivisionError while building the return
+curve, taking down every panel on the page rather than the one that could not
+be computed.
+
+A malformed `Authorization` header returned 500 instead of 401, because
+base64url_decode raises `binascii.Error` before PyJWT's own exceptions, and the
+token splitter raises `DecodeError`, which is not a `ValueError`. Both are now
+caught — after `PyJWKClientConnectionError`, which inherits from `PyJWTError`
+and would otherwise be swallowed by the same clause, turning our own outage
+into "your session expired".
+
+And the narrative said "העלות לליד יציב יחסית". עלות is feminine. Templates were
+writing agreeing words literally, which is right for half the metrics and wrong
+for the other half, and renders without complaint either way — the exact class
+of error the gender field exists to prevent, reintroduced by templates that did
+not use it. Words now agree through `{m|agree:...}`, an unlisted word drops the
+rule rather than guessing, and a test fails on any template that writes one
+literally.
+
 ## Findings and the narrative (WP7)
 
 Numbers never become sentences directly. Metrics become `Finding` objects and

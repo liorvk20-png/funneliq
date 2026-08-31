@@ -314,6 +314,12 @@ def _budget(rows) -> dict:
 
     curve = []
     for budget in sorted(by_budget):
+        # A campaign with no budget has no return per shekel -- there is no
+        # shekel. Skipping it is what the upload warning already promises;
+        # dividing by it crashed the whole dashboard for any company whose
+        # export carries a zero-budget row.
+        if not budget:
+            continue
         profits = by_budget[budget]
         avg = sum(profits) / len(profits)
         curve.append({
@@ -666,7 +672,13 @@ def _read_csv(upload: UploadFile) -> pd.DataFrame:
     last: Exception | None = None
     for encoding in ("utf-8-sig", "cp1255"):
         try:
-            return pd.read_csv(io.BytesIO(data), encoding=encoding)
+            # thousands="," because that is how Excel writes a budget: 12,000.
+            # Without it every such column came back as "36 values are not a
+            # number" -- a rejection the person cannot act on, for a file that
+            # is perfectly readable. The file is comma-delimited, so a comma
+            # cannot also be a decimal point here and there is nothing to
+            # confuse it with.
+            return pd.read_csv(io.BytesIO(data), encoding=encoding, thousands=",")
         except Exception as exc:
             last = exc
     raise HTTPException(

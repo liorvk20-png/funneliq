@@ -60,12 +60,12 @@ RULES: list[Rule] = [
     _r("headline_stable", "metric_change", 40,
        [{"field": "delta_pct", "op": "lt", "value": 0.05},
         {"field": "delta_pct", "op": "gt", "value": -0.05}],
-       "{m|label} יציב יחסית — שינוי של {delta_pct|pct1} בלבד, בתוך הטווח הרגיל.",
+       "{m|label} {m|agree:יציב} יחסית — שינוי של {delta_pct|pct1} בלבד, בתוך הטווח הרגיל.",
        "headline"),
     _r("headline_no_baseline", "metric_change", 120,
        [{"field": "value_baseline", "op": "exists", "value": False}],
        "אין תקופת בסיס להשוואה, ולכן מוצגים ערכים מוחלטים בלבד: "
-       "{m|label} עומד על {value_current|auto}.",
+       "{m|label} {m|agree:עומד} על {value_current|auto}.",
        "headline"),
 
     # ────────────────────────────────────────── B · mix / rate (6-13)
@@ -142,7 +142,7 @@ RULES: list[Rule] = [
        "drivers", requires_fields=("top_three_share", "top_three_names")),
     _r("driver_counter", "segment_driver", 86,
        [COUNTER, {"field": "contribution_share", "op": "abs_gte", "value": 0.30}],
-       "{d|dim} נע בכיוון ההפוך לשינוי ב{m|label_after_b} וריכך אותו "
+       "{d|dim}: תנועה בכיוון ההפוך לשינוי ב{m|label_after_b}, שריככה אותו "
        "בשיעור של {contribution_share|abs_pct1}.",
        "drivers", max_per_report=1),
     _r("driver_overshoot", "segment_driver", 92,
@@ -207,12 +207,12 @@ RULES: list[Rule] = [
     # ──────────────────────────────────── E · anomalies, alerts (28-33)
     _r("anomaly_spike", "anomaly", 100,
        [{"field": "z_score", "op": "gt", "value": 3}],
-       "חריגה חדה: {m|label} ב־{d|dim} הגיע ל־{value_current|auto} — "
+       "חריגה חדה: {m|label} בפלח {d|dim} {m|agree:הגיע} ל־{value_current|auto} — "
        "חריגה משמעותית מהטווח ההיסטורי.",
        "watch", max_per_report=2, requires_fields=("z_score",)),
     _r("anomaly_drop", "anomaly", 100,
        [{"field": "z_score", "op": "lt", "value": -3}],
-       "צניחה חריגה: {m|label} ב־{d|dim} ירד ל־{value_current|auto}.",
+       "צניחה חריגה: {m|label} בפלח {d|dim} {m|verb_down} ל־{value_current|auto}.",
        "watch", max_per_report=2, requires_fields=("z_score",)),
     _r("anomaly_cluster", "anomaly", 110,
        [{"field": "cluster_size", "op": "gte", "value": 3}],
@@ -220,15 +220,15 @@ RULES: list[Rule] = [
        "טכנית או שינוי במעקב, ולא על שינוי התנהגותי.",
        "watch", requires_fields=("cluster_size",)),
     _r("threshold_breach", "threshold_breach", 105, [],
-       "{m|label} חצה את הסף שהגדרת ({threshold|auto}) ועומד כעת "
-       "על {value_current|auto}.",
+       "{m|label} {m|agree:חצה} את הסף שהגדרת ({threshold|auto}). "
+       "הערך הנוכחי: {value_current|auto}.",
        "watch", max_per_report=2, requires_fields=("threshold",)),
     _r("anomaly_recovered", "anomaly", 50,
        [{"field": "recovered_after_days", "op": "exists", "value": True}],
-       "החריגה ב־{d|dim} חזרה לטווח הרגיל לאחר {recovered_after_days|num0} ימים.",
+       "החריגה בפלח {d|dim} חזרה לטווח הרגיל לאחר {recovered_after_days|num0} ימים.",
        "watch", requires_fields=("recovered_after_days",)),
     _r("saturation_point", "saturation_point", 95, [],
-       "{d|dim} מתקרב לרוויה: מעבר ל־{spend_threshold|money} "
+       "{d|dim} — התקרבות לרוויה: מעבר ל־{spend_threshold|money} "
        "התשואה השולית יורדת משמעותית.",
        "watch", requires_fields=("spend_threshold",)),
 

@@ -1,3 +1,4 @@
+import binascii
 import logging
 
 import jwt
@@ -38,12 +39,24 @@ def get_current_user_token(authorization: str | None = Header(default=None)) -> 
     try:
         signing_key = _jwk_client.get_signing_key_from_jwt(token)
     except jwt.exceptions.PyJWKClientConnectionError as exc:
+        # First, and it must stay first: PyJWKClientConnectionError inherits
+        # from PyJWTError, so a broader clause above it swallows a network
+        # outage and reports it as a bad token -- signing the person out over a
+        # fault on our side and telling them their session expired. Reordering
+        # these two clauses reintroduces that, and the test suite says so.
         log.warning("JWKS fetch failed: %s", exc)
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "לא הצלחנו לאמת את ההתחברות מול שרת ההזדהות. נסה שוב בעוד רגע.",
         ) from exc
-    except jwt.exceptions.PyJWKClientError:
+    except (jwt.PyJWTError, ValueError, TypeError, binascii.Error) as exc:
+        # Everything a malformed header can raise on the way to finding a key.
+        # The list grew twice while being written: base64url_decode raises
+        # binascii.Error for a segment that is not base64, and the splitter
+        # raises DecodeError for a token that is not three segments -- and
+        # DecodeError is not a ValueError, so a first fix that caught only the
+        # value errors still returned 500 for "Bearer eyJhbGciOiJIUzI1NiJ9".
+        log.info("malformed bearer token rejected: %s", exc)
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, "Invalid or expired token"
         ) from None
@@ -55,7 +68,7 @@ def get_current_user_token(authorization: str | None = Header(default=None)) -> 
             algorithms=["ES256", "RS256"],
             audience="authenticated",
         )
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, ValueError, TypeError, binascii.Error):
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, "Invalid or expired token"
         ) from None

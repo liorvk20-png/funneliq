@@ -229,3 +229,33 @@ def test_the_upload_page_documents_every_column_it_requires():
     for column in documented:
         assert f'["{column}"' in docs, f"{column} is required but not documented"
     assert "followup_1 … followup_5" in docs
+
+
+def test_numbers_written_the_way_excel_writes_them():
+    """
+    Excel exports a budget as 12,000 and the parser called it "not a number" —
+    a rejection naming a column the person can see is fine, for a file that is
+    perfectly readable. Found by uploading a generated export rather than by
+    reading the code.
+
+    Safe here because the file is comma-delimited: a comma cannot also be a
+    decimal point, so there is nothing to confuse it with.
+    """
+    import io
+
+    import pandas as pd
+
+    from app.main import _read_csv
+
+    class Upload:
+        def __init__(self, payload: bytes):
+            self.file = io.BytesIO(payload)
+            self.filename = "excel.csv"
+
+    frame = good_frame(3)
+    frame["ad_budget"] = frame["ad_budget"].map(lambda v: f"{v:,}")
+    parsed = _read_csv(Upload(frame.to_csv(index=False).encode("utf-8-sig")))
+    assert parsed["ad_budget"].tolist() == [2000, 2000, 2000]
+    assert pd.api.types.is_integer_dtype(parsed["ad_budget"])
+    report, _ = inspect(parsed)
+    assert report.ok, report.errors
