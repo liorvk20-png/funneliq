@@ -206,6 +206,27 @@ The role a person picks at sign-up is a request and nothing more. Whoever opens
 a workspace administers it; whoever joins gets the role their invitation
 carries. A field the applicant fills in cannot decide their own access.
 
+### Which member is asking
+
+RLS lets a colleague read every profile in their company — that is what makes
+the members list possible. So a query for "the profile" returns several rows,
+and taking the first one returns whoever Postgres happened to hand back.
+
+With one member per company that was always the right person. With two it was
+usually the admin, and an editor opening the product was shown the admin's
+name, the admin's role and the admin's controls. `_my_role` had the same shape
+and gates who may invite people, so an editor was offered a permission they did
+not have; the database refused the write underneath, which is the only reason
+nothing was created.
+
+Both now filter on the verified subject of the caller's own token, which
+`app/auth.py` records when it checks the signature. `_company_id` deliberately
+does not — every profile in a workspace names the same company, so any row
+answers that question.
+
+`scripts/verify_roles.py` covers it, and every check in it needs two people in
+one workspace, which is why nothing caught this earlier.
+
 ### Two documents
 
 A privacy policy and an accessibility statement, both reachable from the

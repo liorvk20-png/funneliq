@@ -266,3 +266,74 @@ def test_a_requested_role_is_a_request_and_not_a_grant():
     assert '"requested_role"' in signup
     # never used to set a role directly
     assert 'role=' not in signup and '"role":' not in signup
+
+
+# ------------------------------------------------ which member is asking
+# /api/me returned whichever profile Postgres handed back first. RLS lets a
+# colleague read every profile in their company, so with a second person in the
+# workspace that was usually the admin's row — and an editor was shown the
+# admin's name, role and controls. Everything worked while every company had
+# exactly one member.
+def _handler(name: str) -> str:
+    from pathlib import Path
+    source = (Path(__file__).resolve().parent.parent / "app" / "main.py").read_text()
+    return source.split(name)[1].split("\n@app.")[0]
+
+
+def test_api_me_returns_the_caller_and_not_a_colleague():
+    body = _handler('@app.get("/api/me")')
+    assert "user_id_for(token)" in body, (
+        "/api/me does not filter profiles to the caller")
+
+
+def test_the_role_check_reads_the_callers_own_row():
+    """
+    This one gates who may invite people. Reading somebody else's row let an
+    editor open seats — RLS refused the write underneath, so nothing was
+    created, but the product offered a permission it did not have.
+    """
+    from pathlib import Path
+    source = (Path(__file__).resolve().parent.parent / "app" / "main.py").read_text()
+    role = source.split("def _my_role(")[1].split("\ndef ")[0]
+    assert "user_id_for(token)" in role
+    assert 'r.get("user_id") == uid' in role
+
+
+def test_every_read_of_profiles_is_either_filtered_or_company_wide():
+    """
+    Checks the assignment rather than the use, because a filter can sit on the
+    line above. Two shapes are allowed: filtered to the caller, or asking only
+    for company_id — which is the same for everyone in the workspace, so any
+    row answers it.
+    """
+    from pathlib import Path
+    source = (Path(__file__).resolve().parent.parent / "app" / "main.py").read_text()
+    lines = source.splitlines()
+    # A window rather than a regex: the assignment wraps over several lines and
+    # a first attempt stopped at the first of them, cutting off the filter it
+    # was looking for.
+    for i, line in enumerate(lines):
+        if not line.strip().startswith("profiles = "):
+            continue
+        statement = "\n".join(lines[i:i + 4])
+        filtered = "user_id_for(token)" in statement
+        company_only = 'select("company_id")' in statement
+        assert filtered or company_only, (
+            "profiles read without saying which member it is about:\n"
+            + statement.strip()[:120])
+
+
+@pytest.mark.parametrize("endpoint", [
+    '@app.post("/api/uploads")',
+    '@app.delete("/api/uploads/{upload_id}")',
+    '@app.patch("/api/company")',
+])
+def test_a_viewer_is_refused_with_a_reason(endpoint):
+    """
+    The database refuses these for a viewer, correctly. Surfacing that as a 500
+    told the person nothing they could act on; it is a 403 that names the
+    permission and says who can change it.
+    """
+    body = _handler(endpoint)
+    assert "HTTP_403_FORBIDDEN" in body
+    assert "צפייה" in body
