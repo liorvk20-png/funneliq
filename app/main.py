@@ -30,7 +30,7 @@ from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from app.accounts import Ambiguous, email_for_company, looks_like_email, translate  # noqa: E402
 from app.analytics.pipeline import analyse  # noqa: E402
-from app.auth import get_current_user_token  # noqa: E402
+from app.auth import get_current_user_token, user_id_for  # noqa: E402
 from app.config import require_env  # noqa: E402
 from app.db import get_anon_client, get_service_client, get_user_client  # noqa: E402
 from app.findings import repository  # noqa: E402
@@ -672,7 +672,14 @@ def me(token: str = Depends(get_current_user_token)):
     # and this endpoint runs on every sign-in. Naming logo_b64 here once took
     # the product down between a deploy and its migration; naming full_name
     # would have done it again.
-    profiles = client.table("profiles").select("*").execute().data
+    # Filtered to the caller. A colleague may legitimately read every profile
+    # in their company -- that is what makes the members list possible -- so
+    # taking the first row returned whichever one Postgres handed back. With a
+    # second person in the workspace that was usually the admin's, and an
+    # editor was shown the admin's name, the admin's role and the admin's
+    # controls.
+    profiles = [p for p in client.table("profiles").select("*").execute().data
+                if p.get("user_id") == user_id_for(token)]
     if not profiles:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -846,6 +853,8 @@ def _load_model(entry: dict):
 
 
 def _company_id(client) -> str:
+    # Any profile in this workspace names the same company, so no filter is
+    # needed here -- RLS has already limited the rows to one company.
     profiles = client.table("profiles").select("company_id").execute().data
     if not profiles:
         raise HTTPException(
@@ -977,13 +986,27 @@ def create_upload(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             {"message": "הקובץ לא עבר בדיקה", **report.as_dict()})
 
-    upload = client.table("uploads").insert({
-        "company_id": company_id,
-        "period": month.isoformat(),
-        "filename": file.filename,
-        "row_count": report.rows,
-        "status": "analysing",
-    }).execute().data[0]
+    try:
+        upload = client.table("uploads").insert({
+            "company_id": company_id,
+            "period": month.isoformat(),
+            "filename": file.filename,
+            "row_count": report.rows,
+            "status": "analysing",
+        }).execute().data[0]
+    except Exception as exc:
+        # RLS refuses this for a viewer, which is correct and is not a server
+        # fault. Reporting it as one told the person nothing they could act on.
+        if _my_role(client, token) == "viewer":
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "להרשאת צפייה אין אפשרות לייבא נתונים. "
+                "פנה למנהל סביבת העבודה כדי לשנות את ההרשאה.",
+            ) from None
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "שמירת הייבוא נכשלה. אפשר לנסות שוב.",
+        ) from exc
 
     try:
         records = to_records(clean, company_id, upload["id"])
@@ -1197,13 +1220,23 @@ def seats(token: str = Depends(get_current_user_token)):
             "full_name": m.get("full_name"), "job_title": m.get("job_title"),
         } for m in members],
         "invitations": pending,
-        "role": _my_role(client),
+        "role": _my_role(client, token),
     }
 
 
-def _my_role(client) -> str | None:
-    rows = client.table("profiles").select("role").execute().data
-    mine = [r for r in rows if r.get("role")]
+def _my_role(client, token: str) -> str | None:
+    """
+    The caller's own role.
+
+    Same trap as /api/me and a worse consequence: this gates who may invite
+    people, and reading somebody else's row here let an editor open seats.
+    RLS refused the write underneath, so nothing was actually created — but the
+    product was offering a permission it did not have, which is its own kind of
+    wrong.
+    """
+    uid = user_id_for(token)
+    rows = client.table("profiles").select("user_id,role").execute().data
+    mine = [r for r in rows if r.get("user_id") == uid]
     return mine[0]["role"] if mine else None
 
 
@@ -1224,7 +1257,7 @@ def invite_seat(payload: dict, token: str = Depends(get_current_user_token)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "הרשאה לא מוכרת.")
 
     client = get_user_client(token)
-    if _my_role(client) != "admin":
+    if _my_role(client, token) != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN,
                             "רק מנהל סביבת העבודה יכול להזמין קולגות.")
 
@@ -1262,7 +1295,7 @@ def invite_seat(payload: dict, token: str = Depends(get_current_user_token)):
 def revoke_seat(invitation_id: str, token: str = Depends(get_current_user_token)):
     """Withdraw an invitation. The code stops working immediately."""
     client = get_user_client(token)
-    if _my_role(client) != "admin":
+    if _my_role(client, token) != "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN,
                             "רק מנהל סביבת העבודה יכול לבטל הזמנות.")
     updated = (client.table("invitations").update({"status": "revoked"})
@@ -1298,6 +1331,10 @@ def rename_company(payload: dict, token: str = Depends(get_current_user_token)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "לא נשלח מה לשנות.")
 
     client = get_user_client(token)
+    if _my_role(client, token) == "viewer":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "להרשאת צפייה אין אפשרות לשנות את הגדרות הארגון.")
     try:
         updated = (client.table("companies").update(changes)
                    .eq("id", _company_id(client)).execute().data)
@@ -1331,6 +1368,10 @@ def delete_upload(upload_id: str, background: BackgroundTasks,
     if not found:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "אין העלאה כזו.")
 
+    if _my_role(client, token) == "viewer":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "להרשאת צפייה אין אפשרות למחוק תקופות.")
     removed = client.table("funnel_records").delete().eq("upload_id", upload_id).execute()
     client.table("uploads").delete().eq("id", upload_id).execute()
     # The models were fitted on rows that no longer exist. Leaving them in place

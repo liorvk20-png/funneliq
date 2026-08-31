@@ -19,6 +19,16 @@ JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
 _jwk_client = PyJWKClient(JWKS_URL, cache_keys=True)
 
 
+# The verified subject of each token this process has checked. Small and
+# short-lived: tokens last an hour, and a restart empties it.
+_SUBJECTS: dict[str, str | None] = {}
+
+
+def user_id_for(token: str) -> str | None:
+    """Which account a verified token belongs to."""
+    return _SUBJECTS.get(token)
+
+
 def get_current_user_token(authorization: str | None = Header(default=None)) -> str:
     """
     FastAPI dependency: verifies the caller's Supabase-issued JWT and returns
@@ -62,7 +72,7 @@ def get_current_user_token(authorization: str | None = Header(default=None)) -> 
         ) from None
 
     try:
-        jwt.decode(
+        claims = jwt.decode(
             token,
             signing_key.key,
             algorithms=["ES256", "RS256"],
@@ -72,4 +82,9 @@ def get_current_user_token(authorization: str | None = Header(default=None)) -> 
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED, "Invalid or expired token"
         ) from None
+    # The verified subject, cached on the token string. Callers that need to
+    # know *which* member is asking read it from here rather than guessing from
+    # a query result -- a colleague can legitimately read every profile in
+    # their company, so "the first row" is not the caller.
+    _SUBJECTS[token] = claims.get("sub")
     return token
