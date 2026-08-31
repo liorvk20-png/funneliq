@@ -28,9 +28,11 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from app.accounts import Ambiguous, email_for_company, looks_like_email, translate  # noqa: E402
+from app.analytics.pipeline import analyse  # noqa: E402
 from app.auth import get_current_user_token  # noqa: E402
 from app.config import require_env  # noqa: E402
 from app.db import get_anon_client, get_service_client, get_user_client  # noqa: E402
+from app.findings import repository  # noqa: E402
 from app.ingest import MAX_BYTES, inspect, to_records  # noqa: E402
 from app.training import MIN_ROWS, load, predict_one, train  # noqa: E402
 
@@ -557,6 +559,19 @@ def predict_record(record_id: int, token: str = Depends(get_current_user_token))
     }
 
 
+@app.get("/api/analysis")
+def analysis(token: str = Depends(get_current_user_token)):
+    """
+    The latest run's narrative, and the findings each sentence rests on.
+
+    Sentences and findings are returned together on purpose. A reader who wants
+    to know where a claim came from should be able to follow it without a
+    second request, and a consumer that only wants the prose can ignore half
+    the payload -- which is cheaper than two round trips for everyone else.
+    """
+    return repository.latest(get_user_client(token))
+
+
 @app.get("/api/models")
 def models(token: str = Depends(get_current_user_token)):
     """
@@ -770,8 +785,39 @@ def create_upload(
 
     client.table("uploads").update({"status": "ready"}).eq("id", upload["id"]).execute()
     models = _retrain(client, company_id, upload["id"])
+    narrative = _analyse(client, company_id, upload["id"], month.isoformat())
     return {"uploadId": upload["id"], "period": month.isoformat(),
-            "models": models, **report.as_dict()}
+            "models": models, "narrative": narrative, **report.as_dict()}
+
+
+def _analyse(client, company_id: str, upload_id: str, period: str) -> list[str]:
+    """
+    Compare the month just uploaded against the one before it, and store the
+    result as a run.
+
+    Like training, a failure here does not fail the upload: the rows are stored
+    and every descriptive panel works without an analysis. Losing a company's
+    month because a narrative would not compose would be the wrong trade.
+    """
+    try:
+        uploads = (client.table("uploads").select("id,period")
+                   .order("period", desc=True).limit(2).execute().data)
+        previous = next((u for u in uploads if u["id"] != upload_id), None)
+
+        current_rows = client.table("funnel_records").select("*").eq(
+            "upload_id", upload_id).execute().data
+        baseline_rows = (client.table("funnel_records").select("*").eq(
+            "upload_id", previous["id"]).execute().data if previous else [])
+
+        result = analyse(current_rows, baseline_rows,
+                         current_period=period,
+                         baseline_period=previous["period"] if previous else None)
+        repository.save(client, company_id, result.findings, result.sentences,
+                        upload_id=upload_id)
+        return [s.text_he for s in result.sentences]
+    except Exception:
+        log.exception("analysis failed for company %s", company_id)
+        return []
 
 
 def _retrain(client, company_id: str, upload_id: str | None) -> list[dict]:
