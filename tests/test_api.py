@@ -99,10 +99,24 @@ def test_dashboard_is_hebrew_and_right_to_left(dashboard):
 
 @pytest.mark.parametrize("page", PAGE_KEYS)
 def test_every_sidebar_link_has_a_page_behind_it(dashboard, page):
-    """A link to a route with no PAGES entry silently falls back to home."""
-    assert f'data-page="{page}"' in dashboard
-    assert f"PAGES.{page} =" in dashboard
-    assert f'"{page}"' in dashboard.split("const ROUTE_ORDER")[1].split("\n")[0]
+    """
+    The navigation, the routes and the page headings all read from PAGE_META
+    now. Two lists meant two chances to disagree and they took both: the
+    sidebar said "משפך המכירות" and the page it opened said "מסע הלקוח".
+    """
+    meta = dashboard.split("const PAGE_META = {")[1].split("\n};")[0]
+    assert f"{page}:" in meta, f"{page} is not in PAGE_META"
+    assert f"PAGES.{page} =" in dashboard, f"{page} has no page function"
+
+
+def test_the_sidebar_label_and_the_page_heading_are_the_same_words(dashboard):
+    """The label somebody clicks has to be the heading they land on."""
+    import re
+    meta = dashboard.split("const PAGE_META = {")[1].split("\n};")[0]
+    entries = re.findall(r'nav:\s*"([^"]+)",\s*title:\s*"([^"]+)"', meta)
+    assert len(entries) == len(PAGE_KEYS)
+    for nav, title in entries:
+        assert nav == title, f"sidebar says {nav!r}, the page says {title!r}"
 
 
 @pytest.mark.parametrize("element", [
@@ -530,11 +544,13 @@ def test_every_figure_on_the_dashboard_has_a_plain_explanation(dashboard):
     understand. The glossary is the one place that pairs them.
     """
     glossary = dashboard.split("const GLOSSARY = {")[1].split("\n};")[0]
-    for key in ("leads", "closed", "spend", "profit", "cost_per_lead",
-                "answer_rate", "close_rate", "ltv_months", "return_per_shekel"):
-        assert f"{key}: {{" in glossary, f"{key} has no plain-language entry"
-    # The one the customer asked about twice, by name.
-    assert "כמה חודשים בממוצע לקוח ממשיך לשלם" in dashboard
+    for key in ("leads", "closed", "spend", "profit", "revenue", "roas",
+                "cost_per_lead", "cost_per_close", "answer_rate", "close_rate",
+                "ltv_months"):
+        assert f"{key}: {{" in glossary, f"{key} has no definition"
+    # LTV is named by its term and defined beside it — a media buyer knows the
+    # acronym, a finance lead may not, and both open the same dashboard.
+    assert "מספר החודשים שלקוח ממוצע ממשיך לשלם" in dashboard
 
 
 def test_the_campaign_table_shows_everything_not_a_sample(dashboard):
@@ -554,3 +570,74 @@ def test_the_pages_draw_pictures_and_not_only_tables(dashboard):
     # And each one is readable without seeing it.
     assert dashboard.count('role="img"') >= 4
     assert dashboard.count("aria-label=") >= 8
+
+
+def test_a_stale_response_does_not_throw_the_refresh_token_away(dashboard):
+    """
+    The retry path called clearSession() before renewing, which deleted the
+    refresh token it was about to need — so one stale response signed the
+    person out permanently instead of recovering. The session is cleared only
+    once a renewal has actually failed.
+    """
+    import re
+    body = dashboard.split("async function api(path)")[1].split("\n}")[0]
+    # Comments only, stripped: the comment above the fix names the call it
+    # removed, and a first version of this test flagged its own explanation.
+    code = re.sub(r"(?m)//.*$", "", body)
+    retry = code.split("if(res.status === 401){")[1]
+    assert "clearSession()" not in retry.split("renewNow()")[0], (
+        "the retry path clears the session before it renews")
+
+
+# ------------------------------------------------------- one whole document
+# Written after a splice matched a marker in the stylesheet that also appears
+# in the script, and duplicated everything between them: two <body> elements,
+# two copies of the markup, two stylesheets. The JavaScript still parsed, every
+# id was still present, and the whole suite passed — the later copy silently won.
+@pytest.mark.parametrize("marker,expected", [
+    ("<body>", 1), ("</head>", 1), ("<style>", 1), ("</style>", 1),
+    ("<script>", 2), ("</script>", 2),   # the theme bootstrap and the app
+    ('id="loginView"', 1), ('id="appView"', 1), ('id="pageBody"', 1),
+])
+def test_the_page_is_one_document(dashboard, marker, expected):
+    assert dashboard.count(marker) == expected, (
+        f"{marker!r} appears {dashboard.count(marker)} times, expected {expected}")
+
+
+def test_the_stylesheet_is_balanced(dashboard):
+    css = dashboard.split("<style>")[1].split("</style>")[0]
+    assert css.count("{") == css.count("}")
+
+
+def test_campaign_rows_carry_the_import_they_came_from(dashboard):
+    """The overview can be filtered to one month, which needs the row to say
+    which month it is."""
+    from pathlib import Path
+    source = (Path(__file__).resolve().parent.parent / "app" / "main.py").read_text()
+    assert '"uploadId": r.get("upload_id")' in source
+    assert "PERIOD" in dashboard and "periodTotals" in dashboard
+
+
+def test_the_recommendations_show_their_working_on_request(dashboard):
+    """
+    Every suggestion carries the reasoning behind it, behind a button — hidden
+    by default so the page stays readable, available so nothing has to be taken
+    on trust.
+    """
+    assert "data-basis=" in dashboard
+    assert "על מה זה מבוסס?" in dashboard
+
+
+def test_the_recommendations_are_not_numbered(dashboard):
+    """
+    They were numbered 1, 2, 3, which reads as a required order. They are
+    ranked by value, and any of them can be acted on alone.
+    """
+    advice = dashboard.split("PAGES.advice = () => {")[1].split("\n};")[0]
+    assert '<span class="rank">' not in advice
+
+
+def test_before_and_after_are_shown_side_by_side(dashboard):
+    """A percentage on its own does not say what it is a percentage of."""
+    assert "function comparison(" in dashboard
+    assert "compare-side" in dashboard and "is-after" in dashboard
