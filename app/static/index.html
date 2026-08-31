@@ -89,6 +89,14 @@ button.primary,.login button[type=submit]{
 }
 button.primary:hover,.login button[type=submit]:hover{background:var(--brand-ink)}
 button[disabled]{opacity:.55;cursor:not-allowed}
+.pw{position:relative}
+.pw input{padding-inline-start:62px}
+.pw button{
+  position:absolute;inset-inline-start:6px;top:50%;transform:translateY(-50%);
+  background:none;border:0;font:inherit;font-size:13px;font-weight:700;
+  color:var(--brand-ink);cursor:pointer;padding:6px 8px;border-radius:6px;
+}
+.pw button:hover{background:var(--brand-soft)}
 .msg{margin-top:14px;padding:11px 13px;border-radius:var(--r-sm);font-size:14px;display:none}
 .msg:not(:empty){display:block}
 .msg.err{background:var(--bad-soft);color:var(--bad)}
@@ -235,12 +243,17 @@ button.ghost:hover{background:var(--bad-soft);border-color:#f4c3ca}
     </div>
 
     <div class="field">
-      <label for="email">אימייל</label>
-      <input id="email" type="email" autocomplete="username" required>
+      <label for="email" id="emailLabel">אימייל או שם חברה</label>
+      <input id="email" type="text" autocomplete="username" required>
+      <p class="hint" id="emailHint">אפשר להתחבר עם כתובת האימייל או עם שם החברה שנרשמת איתו.</p>
     </div>
     <div class="field">
       <label for="password">סיסמה</label>
-      <input id="password" type="password" autocomplete="current-password" required minlength="6">
+      <div class="pw">
+        <input id="password" type="password" autocomplete="current-password" required minlength="6">
+        <button type="button" id="pwToggle" aria-pressed="false"
+                aria-label="הצג סיסמה" title="הצג סיסמה">הצג</button>
+      </div>
     </div>
 
     <button type="submit" id="loginBtn">כניסה</button>
@@ -280,37 +293,24 @@ const TOKEN_KEY = "funneliq.token";
 const $ = (id) => document.getElementById(id);
 
 /* ------------------------------------------------------------------ auth */
-async function getConfig(){
-  const res = await fetch("/api/config");
-  if(!res.ok) throw new Error("השרת לא מוגדר כראוי. פנה למנהל המערכת.");
-  return res.json();
-}
-
-async function signUp(email, password, company){
-  const c = await getConfig();
-  const res = await fetch(`${c.supabaseUrl}/auth/v1/signup`, {
-    method:"POST",
-    headers:{ "apikey": c.publishableKey, "Content-Type":"application/json" },
-    // company_name travels in user metadata so the database trigger can read
-    // it and create the workspace. Nothing in the browser creates the company.
-    body: JSON.stringify({ email, password, data:{ company_name: company } }),
+// Both go through our own server rather than straight to Supabase. Supabase
+// answers in English, and this page is Hebrew; routing through the server puts
+// every refusal in one place instead of translating some of them here and
+// leaving the rest as "Invalid login credentials". Signing in by company name
+// could not work from the browser at all — the lookup it needs is one no
+// anonymous caller is allowed to make.
+async function post(path, body){
+  const res = await fetch(path, {
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(body),
   });
-  const data = await res.json();
-  if(!res.ok) throw new Error(data.msg || data.error_description || data.message || "ההרשמה נכשלה");
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok) throw new Error(data.detail || "הפעולה נכשלה");
   return data;
 }
 
-async function signIn(email, password){
-  const c = await getConfig();
-  const res = await fetch(`${c.supabaseUrl}/auth/v1/token?grant_type=password`, {
-    method:"POST",
-    headers:{ "apikey": c.publishableKey, "Content-Type":"application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if(!res.ok) throw new Error(data.error_description || data.msg || "אימייל או סיסמה שגויים");
-  return data;
-}
+const signUp = (email, password, company) => post("/api/signup", { email, password, company });
+const signIn = (identifier, password) => post("/api/login", { identifier, password });
 
 function saveSession(d){
   localStorage.setItem(TOKEN_KEY, JSON.stringify({
@@ -1146,6 +1146,12 @@ function setMode(next){
     ? "פתח סביבת עבודה חדשה לחברה שלך"
     : "ניתוח קמפיינים לחברה שלך";
   $("password").setAttribute("autocomplete", up ? "new-password" : "current-password");
+  // Signing up needs a real address, so the browser should validate it. Signing
+  // in accepts a company name too, and type="email" would reject that before
+  // the form was ever submitted.
+  $("email").type = up ? "email" : "text";
+  $("emailLabel").textContent = up ? "אימייל" : "אימייל או שם חברה";
+  $("emailHint").classList.toggle("hidden", up);
   say("err", ""); say("ok", "");
 }
 const mode = () => $("tabSignUp").getAttribute("aria-selected") === "true" ? "signup" : "signin";
@@ -1154,6 +1160,18 @@ function say(kind, text){
   $(kind === "ok" ? "loginOk" : "loginErr").textContent = text;
   if(text) $(kind === "ok" ? "loginErr" : "loginOk").textContent = "";
 }
+
+$("pwToggle").onclick = () => {
+  const input = $("password"), btn = $("pwToggle");
+  const showing = input.type === "text";
+  input.type = showing ? "password" : "text";
+  btn.textContent = showing ? "הצג" : "הסתר";
+  btn.setAttribute("aria-pressed", String(!showing));
+  const label = showing ? "הצג סיסמה" : "הסתר סיסמה";
+  btn.setAttribute("aria-label", label);
+  btn.title = label;
+  input.focus();
+};
 
 $("tabSignIn").onclick = () => setMode("signin");
 $("tabSignUp").onclick = () => setMode("signup");

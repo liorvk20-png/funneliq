@@ -76,6 +76,37 @@ def test_every_sidebar_link_has_a_page_behind_it(dashboard, page):
     "loginView", "appView", "loginForm", "tabSignIn", "tabSignUp", "companyField",
     "company", "email", "password", "loginBtn", "loginErr", "loginOk",
     "tagline", "nav", "who", "logoutBtn", "pageBody", "main",
+    "pwToggle", "emailLabel", "emailHint",
 ])
+
+
 def test_elements_the_script_looks_up_exist(dashboard, element):
     assert f'id="{element}"' in dashboard
+
+
+def test_the_password_can_be_revealed(dashboard):
+    """
+    A person typing a password they cannot see on a phone keyboard gets it
+    wrong and is told their credentials are invalid, with no way to tell which
+    part was wrong. The toggle has to carry its state for a screen reader too.
+    """
+    assert 'id="pwToggle"' in dashboard and 'aria-pressed' in dashboard
+
+
+def test_signing_in_accepts_a_company_name(dashboard):
+    """
+    type="email" on the sign-in field would reject a company name in the
+    browser, before the request that knows how to resolve it is ever made.
+    """
+    assert 'אימייל או שם חברה' in dashboard
+    assert '$("email").type = up ? "email" : "text"' in dashboard
+
+
+def test_the_browser_no_longer_talks_to_supabase_auth_directly(dashboard):
+    """
+    Both flows go through our own endpoints so every refusal is translated in
+    one place. A call left pointing at Supabase would answer in English again.
+    """
+    assert "/auth/v1/token" not in dashboard
+    assert "/auth/v1/signup" not in dashboard
+    assert '"/api/login"' in dashboard and '"/api/signup"' in dashboard
