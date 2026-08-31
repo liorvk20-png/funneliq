@@ -1271,13 +1271,19 @@ const PALETTE = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--c5)"
 function barChart(items, { formatter = num0, colour } = {}){
   if(!items.length) return "";
   const max = Math.max(...items.map(i => Math.abs(i.value)), 1);
+  // `label` arrives already formatted: money() wraps its figure in a <bdi> so
+  // the currency sign stays on the right side of the digits inside Hebrew.
+  // Escaping it printed the tag on the chart. `plain` strips the markup for the
+  // places that need text rather than HTML — the tooltip and the description a
+  // screen reader hears.
+  const plain = (html) => String(html).replace(/<[^>]*>/g, "");
   return `<div class="chart-bars" role="img"
-       aria-label="${esc(items.map(i => `${i.label}: ${formatter(i.value)}`).join(", "))}">
+       aria-label="${esc(items.map(i => `${plain(i.label)}: ${plain(formatter(i.value))}`).join(", "))}">
     ${items.map((i, index) => {
       const width = Math.max(1.5, 100 * Math.abs(i.value) / max);
       const fill = i.colour || colour || PALETTE[index % PALETTE.length];
       return `<div class="cb-row">
-        <span class="cb-label" title="${esc(i.label)}">${esc(i.label)}</span>
+        <span class="cb-label" title="${esc(plain(i.label))}">${i.label}</span>
         <span class="cb-track">
           <span class="cb-fill" style="width:${width}%;background:${fill}"></span>
         </span>
@@ -1292,16 +1298,17 @@ function barChart(items, { formatter = num0, colour } = {}){
    like losing half your people. */
 function funnelChart(stages){
   if(!stages.length) return "";
+  const plain = (html) => String(html).replace(/<[^>]*>/g, "");
   const top = Math.max(stages[0].value, 1);
   return `<div class="chart-funnel" role="img"
-       aria-label="${esc(stages.map(s => `${s.label}: ${nf.format(s.value)}`).join(", "))}">
+       aria-label="${esc(stages.map(s => `${plain(s.label)}: ${nf.format(s.value)}`).join(", "))}">
     ${stages.map((s, i) => {
       const share = Math.max(4, 100 * s.value / top);
       const lost = i ? stages[i - 1].value - s.value : 0;
       const dropped = i && stages[i - 1].value
         ? Math.round(100 * lost / stages[i - 1].value) : 0;
       return `<div class="cf-row">
-        <span class="cf-label">${esc(s.label)}</span>
+        <span class="cf-label">${s.label}</span>
         <span class="cf-bar" style="width:${share}%;
               background:linear-gradient(90deg,var(--c1),var(--c2))">
           <b>${nf.format(s.value)}</b>
@@ -1315,6 +1322,7 @@ function funnelChart(stages){
 
 /* A ring, for a split of a whole into three or four parts. */
 function donut(parts){
+  const plain = (html) => String(html).replace(/<[^>]*>/g, "");
   const total = parts.reduce((sum, p) => sum + p.value, 0);
   if(!total) return "";
   let offset = 0;
@@ -1331,7 +1339,7 @@ function donut(parts){
   }).join("");
   return `<div class="chart-donut">
     <svg viewBox="0 0 140 140" role="img"
-         aria-label="${esc(parts.map(p => `${p.label}: ${nf.format(p.value)}`).join(", "))}">
+         aria-label="${esc(parts.map(p => `${plain(p.label)}: ${nf.format(p.value)}`).join(", "))}">
       <circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="15"/>
       ${arcs}
       <text x="70" y="68" text-anchor="middle" class="donut-total"
@@ -1341,7 +1349,7 @@ function donut(parts){
     </svg>
     <ul class="legend">${parts.map((p, i) => `<li>
       <i style="background:${p.colour || PALETTE[i % PALETTE.length]}"></i>
-      ${esc(p.label)} <b>${nf.format(p.value)}</b>
+      ${p.label} <b>${nf.format(p.value)}</b>
       <em>${total ? Math.round(100 * p.value / total) : 0}%</em></li>`).join("")}</ul>
   </div>`;
 }
@@ -1351,6 +1359,7 @@ function donut(parts){
    somebody will want to name. */
 function lineChart(points, { formatter = num0 } = {}){
   if(points.length < 2) return "";
+  const plain = (html) => String(html).replace(/<[^>]*>/g, "");
   const W = 640, H = 190, PAD = 34;
   const values = points.map(p => p.value);
   const min = Math.min(...values, 0), max = Math.max(...values);
@@ -1361,7 +1370,7 @@ function lineChart(points, { formatter = num0 } = {}){
   const area = `${line} L${x(points.length - 1).toFixed(1)},${H - PAD} L${PAD},${H - PAD} Z`;
   return `<div class="chart-line">
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
-         aria-label="${esc(points.map(p => `${p.label}: ${formatter(p.value)}`).join(", "))}">
+         aria-label="${esc(points.map(p => `${plain(p.label)}: ${plain(formatter(p.value))}`).join(", "))}">
       <path d="${area}" fill="url(#lineFill)" opacity=".5"/>
       <path d="${line}" fill="none" stroke="var(--c1)" stroke-width="2.5"
             stroke-linejoin="round" stroke-linecap="round"/>
@@ -1373,7 +1382,7 @@ function lineChart(points, { formatter = num0 } = {}){
       </linearGradient></defs>
     </svg>
     <div class="cl-axis">${points.map(p =>
-      `<span><b>${formatter(p.value)}</b>${esc(p.label)}</span>`).join("")}</div>
+      `<span><b>${formatter(p.value)}</b>${p.label}</span>`).join("")}</div>
   </div>`;
 }
 
@@ -1665,7 +1674,7 @@ PAGES.predict = () => {
           <option value="closed">מספר המרות</option>
           <option value="cpl">CPL</option>
           <option value="budget">תקציב</option>
-          <option value="id">מספר קמפיין</option>
+          <option value="line">מספר שורה</option>
         </select></div>
     </div>
     <label for="recSel">קמפיין</label>
@@ -2184,9 +2193,12 @@ function wireLogo(){
 
 const TABLE_PAGE_SIZE = 25;
 let TABLE = { sort: "closeRate", dir: -1, page: 0, query: "", filter: "" };
+// `period` is a date string, so it sorts as text rather than as a number.
+const TEXT_COLUMNS = new Set(["period"]);
 
 const TABLE_COLUMNS = [
-  { key: "id",        label: "קמפיין",     format: (r) => "#" + nf.format(r.id) },
+  { key: "line",      label: "שורה",       format: (r) => "#" + nf.format(r.line) },
+  { key: "period",    label: "תקופה",      format: (r) => r.period ? monthName(r.period) : "—" },
   { key: "budget",    label: "תקציב",      format: (r) => money(r.budget) },
   { key: "leads",     label: "לידים",      format: (r) => num(r.leads) },
   { key: "answered",  label: "נענו",       format: (r) => num(r.answered) },
@@ -2238,10 +2250,12 @@ function filteredRows(){
     // A number matches the campaign number; anything else is ignored, because
     // there is nothing else in a row to match against yet.
     const n = Number(q.replace(/[^0-9]/g, ""));
-    rows = n ? rows.filter(r => String(r.id).includes(String(n))) : [];
+    rows = n ? rows.filter(r => String(r.line).includes(String(n))) : [];
   }
   const key = TABLE.sort;
-  return rows.sort((a, b) => (a[key] - b[key]) * TABLE.dir);
+  return rows.sort((a, b) => TEXT_COLUMNS.has(key)
+    ? String(a[key] || "").localeCompare(String(b[key] || "")) * TABLE.dir
+    : (a[key] - b[key]) * TABLE.dir);
 }
 
 function campaignTableCard(){
@@ -2276,7 +2290,7 @@ function campaignTableCard(){
         <p class="sub">${num(rows.length)} קמפיינים
           ${TABLE.filter || TABLE.query ? "מתוך " + num(INSIGHTS.records.length) : ""}.
           לחיצה על כותרת עמודה ממיינת לפיה.</p></div>
-      <input id="tblSearch" type="search" placeholder="חיפוש לפי מספר קמפיין"
+      <input id="tblSearch" type="search" placeholder="חיפוש לפי מספר שורה"
              value="${esc(TABLE.query)}" style="max-width:220px" aria-label="חיפוש קמפיין">
     </div>
     <div class="chips">${chips}</div>
@@ -3114,7 +3128,7 @@ function wirePredict(){
     // the campaigns table, and a label that is cut off in the middle is worse
     // than one that stops on purpose.
     $("recSel").innerHTML = list.slice(0, 300).map(r =>
-      `<option value="${r.id}">#${r.id} · ₪${nf.format(r.budget)} · ` +
+      `<option value="${r.id}">שורה ${r.line} · ₪${nf.format(r.budget)} · ` +
       `${r.closeRate.toFixed(1)}% המרה</option>`).join("");
     $("recSel").disabled = !list.length;
     if(list.length) score();
