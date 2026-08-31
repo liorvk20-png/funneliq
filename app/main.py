@@ -102,6 +102,11 @@ def _session(auth_response) -> dict:
         return {"pending": True}
     return {
         "access_token": session.access_token,
+        # Without this the browser has no way to stay signed in. An access
+        # token lasts an hour, and until now nothing renewed it -- so an hour
+        # into the working day the next click threw the person back to the
+        # sign-in screen, mid-task, with no explanation.
+        "refresh_token": session.refresh_token,
         "expires_in": session.expires_in,
         "user": {"email": auth_response.user.email if auth_response.user else None},
     }
@@ -196,6 +201,29 @@ def reset_password(payload: dict):
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
                             translate(str(getattr(exc, "message", exc)))) from None
     return {"updated": True}
+
+
+@app.post("/api/token/refresh")
+def refresh_token(payload: dict):
+    """
+    Trade a refresh token for a fresh access token.
+
+    Supabase issues a new refresh token with every exchange and retires the old
+    one after a short grace window -- long enough that two requests racing each
+    other both succeed, short enough that a stolen token stops working once the
+    real browser renews. The browser must store what comes back, which is why
+    the whole session is returned rather than just the access token.
+    """
+    token = str(payload.get("refreshToken", "")).strip()
+    if not token:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "החיבור פג. התחבר שוב.")
+    try:
+        result = get_anon_client().auth.refresh_session(token)
+    except Exception as exc:
+        log.info("refresh rejected: %s", exc)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                            "החיבור פג. התחבר שוב.") from None
+    return _session(result)
 
 
 @app.get("/api/auth/providers")
