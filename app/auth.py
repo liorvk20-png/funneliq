@@ -1,8 +1,12 @@
+import logging
+
 import jwt
 from fastapi import Header, HTTPException, status
 from jwt import PyJWKClient
 
 from app.config import require_env
+
+log = logging.getLogger("funneliq.auth")
 
 SUPABASE_URL = require_env("SUPABASE_URL")
 
@@ -24,14 +28,35 @@ def get_current_user_token(authorization: str | None = Header(default=None)) -> 
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing bearer token")
     token = authorization.removeprefix("Bearer ").strip()
+
+    # Fetching the key is a network call, and on a freshly started container it
+    # is the first one — the cache is empty until an authenticated request
+    # arrives. Treating a failed fetch as a bad token, which is what a single
+    # except-everything clause here would do, signs the person out over a blip
+    # on our side and tells them their session expired. It is a 503: come back
+    # in a moment, and stay signed in.
     try:
         signing_key = _jwk_client.get_signing_key_from_jwt(token)
+    except jwt.exceptions.PyJWKClientConnectionError as exc:
+        log.warning("JWKS fetch failed: %s", exc)
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "לא הצלחנו לאמת את ההתחברות מול שרת ההזדהות. נסה שוב בעוד רגע.",
+        ) from exc
+    except jwt.exceptions.PyJWKClientError:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Invalid or expired token"
+        ) from None
+
+    try:
         jwt.decode(
             token,
             signing_key.key,
             algorithms=["ES256", "RS256"],
             audience="authenticated",
         )
-    except (jwt.PyJWTError, jwt.exceptions.PyJWKClientError):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Invalid or expired token"
+        ) from None
     return token

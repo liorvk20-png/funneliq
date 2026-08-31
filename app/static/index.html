@@ -656,13 +656,17 @@ PAGES.upload = () => {
   </section>`;
 
   const cols = `<section class="card">
-    <h2>העמודות הנדרשות</h2>
-    <p class="sub">שמות העמודות לא רגישים לאותיות גדולות, לרווחים או למקפים —
-       "Ad Budget" ו־"ad_budget" נחשבות זהות.</p>
+    <h2>מה הקובץ צריך להכיל</h2>
+    <p class="sub">אין צורך לשנות שמות עמודות. המערכת מזהה לבד גם
+       "תקציב", גם "Ad Spend" וגם "budget", בעברית ובאנגלית. מה שהיא לא תזהה
+       בוודאות — היא תשאל אותך עליו ותראה לך דוגמאות מהתוכן, במקום לנחש.
+       הרשימה כאן היא כדי שתדע איזה מידע צריך להיות בקובץ.</p>
     <div class="table-wrap"><table><thead><tr>
-      <th>עמודה</th><th>מה זה</th><th>סוג</th>
+      <th>מה צריך</th><th>איך אולי קוראים לזה אצלך</th><th>סוג</th><th>דוגמה</th>
     </tr></thead><tbody>
-      ${COLUMN_DOCS.map(c => `<tr><td><bdi dir="ltr">${c[0]}</bdi></td><td>${c[1]}</td><td>${c[2]}</td></tr>`).join("")}
+      ${COLUMN_DOCS.map(c => `<tr><td>${c[1]}</td>
+        <td><bdi dir="ltr">${esc(c[3])}</bdi></td><td>${c[2]}</td>
+        <td><bdi dir="ltr">${esc(c[4])}</bdi></td></tr>`).join("")}
     </tbody></table></div>
     <div class="row-actions">
       <button class="primary" id="upTemplate" style="background:var(--surface);color:var(--brand-ink);border:1px solid var(--line-strong)">הורד קובץ לדוגמה</button>
@@ -676,21 +680,21 @@ PAGES.upload = () => {
 // documents; the list the parser actually enforces lives in app/ingest.py, and
 // a test compares the two so this table cannot quietly drift out of date.
 const COLUMN_DOCS = [
-  ["ad_budget", "תקציב הקמפיין בשקלים", "מספר שלם"],
-  ["num_leads", "כמה לידים הגיעו", "מספר שלם"],
-  ["leads_answered", "כמה מהם ענו לטלפון", "מספר שלם"],
-  ["leads_not_answered", "כמה לא ענו", "מספר שלם"],
-  ["followup_1 … followup_5", "כמה הגיעו לכל שלב מעקב", "מספר שלם"],
-  ["closed", "כמה עסקאות נסגרו", "מספר שלם"],
-  ["not_closed", "כמה לא נסגרו", "מספר שלם"],
-  ["calls_to_closed", "שיחות בממוצע עד סגירה", "מספר שלם"],
-  ["calls_to_not_closed", "שיחות שהושקעו בלי סגירה", "מספר שלם"],
-  ["customer_acquisition_cost", "עלות גיוס לקוח", "מספר שלם"],
-  ["ltv_months", "שווי הלקוח בחודשים", "מספר, אפשר להשאיר ריק"],
-  ["cumulative_profit", "רווח מצטבר", "מספר, אפשר להשאיר ריק"],
-  ["purchased", "האם הייתה רכישה", "כן/לא"],
-  ["upsell", "האם הייתה מכירה נוספת", "כן/לא"],
-  ["referred", "האם הלקוח הפנה אחרים", "כן/לא"],
+  ["ad_budget", "תקציב הקמפיין", "מספר שלם", "תקציב · Ad Spend · budget", "2000"],
+  ["num_leads", "כמה לידים הגיעו", "מספר שלם", "לידים · Total Leads · פניות", "40"],
+  ["leads_answered", "כמה מהם ענו לטלפון", "מספר שלם", "ענו · Answered · נענו", "25"],
+  ["leads_not_answered", "כמה לא ענו", "מספר שלם", "לא ענו · No Answer · ללא מענה", "15"],
+  ["followup_1 … followup_5", "כמה הגיעו לכל שלב מעקב", "מספר שלם", "מעקב 1 · Follow up 1 · FU1", "20, 15, 9, 4, 1"],
+  ["closed", "כמה עסקאות נסגרו", "מספר שלם", "נסגרו · Closed Won · סגירות", "3"],
+  ["not_closed", "כמה לא נסגרו", "מספר שלם", "לא נסגרו · Closed Lost · אבודים", "12"],
+  ["calls_to_closed", "שיחות בממוצע עד סגירה", "מספר שלם", "שיחות עד סגירה · Calls to Close", "2"],
+  ["calls_to_not_closed", "שיחות שהושקעו בלי סגירה", "מספר שלם", "שיחות ללא סגירה · Wasted Calls", "4"],
+  ["customer_acquisition_cost", "עלות גיוס לקוח", "מספר שלם", "עלות גיוס · CAC · CPA", "90"],
+  ["ltv_months", "שווי הלקוח בחודשים", "מספר, אפשר ריק", "שווי לקוח · LTV · Lifetime Value", "6"],
+  ["cumulative_profit", "רווח מצטבר", "מספר, אפשר ריק", "רווח · Profit · הכנסה", "4200"],
+  ["purchased", "האם הייתה רכישה", "כן/לא", "רכש · Purchased · קנה", "כן"],
+  ["upsell", "האם הייתה מכירה נוספת", "כן/לא", "מכירה נוספת · Upsell · שדרוג", "לא"],
+  ["referred", "האם הלקוח הפנה אחרים", "כן/לא", "הפנה · Referral · המליץ", "לא"],
 ];
 
 const UPLOAD_STATUS = {
@@ -756,6 +760,106 @@ function wireRename(){
   };
 }
 
+/* ------------------------------------------------- the column questions */
+// Answers the person has given, canonical column -> the header in their file.
+// Kept outside wireUpload so a second check on the same file does not throw
+// away what they already told us.
+let MAPPING = {};
+
+function sampleText(samples, header){
+  const values = (samples || {})[header] || [];
+  const shown = values.map(v => v === null || v === undefined ? "—" : String(v));
+  return shown.length ? shown.join(" · ") : "אין דוגמאות";
+}
+
+function renderQuestions(r){
+  // Anything already resolved is shown too, briefly, so the person can see
+  // what was matched without being asked about it — a silent rename of every
+  // column in their file is not something to discover later.
+  const resolved = Object.entries(r.resolved || {});
+  const done = resolved.length
+    ? `<details style="margin-bottom:18px">
+         <summary style="cursor:pointer;font-weight:600">
+           זיהינו לבד ${resolved.length} עמודות — לחץ כדי לראות</summary>
+         <div class="table-wrap" style="margin-top:10px"><table><thead><tr>
+           <th>העמודה בקובץ שלך</th><th>מה המערכת הבינה</th>
+         </tr></thead><tbody>${
+           resolved.map(([canonical, header]) =>
+             `<tr><td><bdi dir="ltr">${esc(header)}</bdi></td>
+                  <td>${esc(COLUMN_LABEL[canonical] || canonical)}</td></tr>`).join("")
+         }</tbody></table></div></details>`
+    : "";
+
+  const rows = r.questions.map(q => {
+    const options = q.options.map(h =>
+      `<option value="${esc(h)}"${MAPPING[q.column] === h ? " selected" : ""}>${esc(h)}</option>`
+    ).join("");
+    const hint = q.suggestion
+      ? `<div class="n">אולי: <bdi dir="ltr">${esc(q.suggestion)}</bdi> — לא בטוחים מספיק, אז אנחנו שואלים.</div>`
+      : "";
+    return `<tr>
+      <td><strong>${esc(q.label)}</strong>${hint}</td>
+      <td>
+        <select data-map="${esc(q.column)}" aria-label="בחר עמודה עבור ${esc(q.label)}">
+          <option value="">— אין עמודה כזו בקובץ —</option>${options}
+        </select>
+        <div class="n" data-sample-for="${esc(q.column)}"></div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  return `${done}
+    <div class="box warn"><h3>צריך את העזרה שלך ב־${r.questions.length} עמודות</h3>
+      לא הצלחנו לזהות אותן לבד. בחר לכל שורה את העמודה המתאימה מהקובץ שלך —
+      אנחנו מראים לך דוגמאות מהתוכן כדי שלא תצטרך לנחש לפי השם.</div>
+    <div class="table-wrap" style="margin-top:14px"><table><thead><tr>
+      <th style="width:45%">מה המערכת צריכה</th><th>העמודה שלך</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="row-actions">
+      <button class="primary" id="mapApply">אישור והמשך בדיקה</button>
+    </div>`;
+}
+
+function wireQuestions(r, recheck){
+  const showSample = (select) => {
+    const target = document.querySelector(`[data-sample-for="${select.dataset.map}"]`);
+    if(!target) return;
+    target.innerHTML = select.value
+      ? `תוכן: <bdi dir="ltr">${esc(sampleText(r.samples, select.value))}</bdi>`
+      : "";
+  };
+  document.querySelectorAll("[data-map]").forEach(select => {
+    showSample(select);
+    select.onchange = () => {
+      // A header may only answer one question. Letting it answer two would
+      // load the same numbers into two different columns.
+      document.querySelectorAll("[data-map]").forEach(other => {
+        if(other !== select && select.value && other.value === select.value){
+          other.value = "";
+          showSample(other);
+        }
+      });
+      showSample(select);
+    };
+  });
+  const apply = $("mapApply");
+  if(apply) apply.onclick = () => {
+    MAPPING = {};
+    document.querySelectorAll("[data-map]").forEach(s => {
+      if(s.value) MAPPING[s.dataset.map] = s.value;
+    });
+    recheck();
+  };
+}
+
+// Our column names in the person's words, for the confirmation table. Built
+// from the documentation table below rather than kept as a second list, so the
+// two cannot disagree about what a column is; a test checks that the table
+// covers every column the parser requires.
+const COLUMN_LABEL = Object.fromEntries(COLUMN_DOCS
+  .filter(c => !c[0].includes("…"))
+  .map(c => [c[0], c[1]]));
+
 /* --------------------------------------------------------- page: upload */
 function wireUpload(){
   const fileInput = $("upFile"), drop = $("drop");
@@ -767,6 +871,7 @@ function wireUpload(){
   // a report describing a file they are no longer uploading.
   const setFile = (f) => {
     chosen = f; verified = false;
+    MAPPING = {};              // answers describe one file, not the next one
     $("dropName").textContent = f ? f.name : "";
     $("upCheck").disabled = !f;
     $("upSave").disabled = true;
@@ -789,6 +894,7 @@ function wireUpload(){
   async function send(path, extra){
     const body = new FormData();
     body.append("file", chosen);
+    if(Object.keys(MAPPING).length) body.append("mapping", JSON.stringify(MAPPING));
     if(extra) Object.entries(extra).forEach(([k, v]) => body.append(k, v));
     const s = loadSession();
     if(!s) throw new Error("__expired__");
@@ -817,7 +923,12 @@ function wireUpload(){
       html += `<div class="box ok"><h3>הקובץ תקין</h3>
         נמצאו ${num(r.rows)} שורות ו־${num(r.columns.length)} עמודות. אפשר לשמור.</div>`;
     }
-    if(r.errors && r.errors.length){
+    // Unrecognised columns are a question, not a failure. Showing the error
+    // list here as well would tell the person the file is broken at the same
+    // moment we ask them to finish describing it.
+    if(r.needsMapping && !saved){
+      html += renderQuestions(r);
+    }else if(r.errors && r.errors.length){
       html += `<div class="box err"><h3>הקובץ לא יכול להישמר</h3>${list(r.errors)}</div>`;
     }
     if(r.warnings && r.warnings.length){
@@ -839,6 +950,7 @@ function wireUpload(){
         }</tbody></table></div>`;
     }
     $("upReport").innerHTML = html;
+    if(r.needsMapping && !saved) wireQuestions(r, () => $("upCheck").click());
   }
 
   $("upCheck").onclick = async () => {
@@ -1112,6 +1224,19 @@ function logout(){
   showLogin();
 }
 
+async function load(attempts){
+  for(let i = 1; ; i++){
+    try{
+      return await Promise.all([api("/api/me"), api("/api/insights")]);
+    }catch(e){
+      // An expired session and a rejected token will fail again identically;
+      // only a server that is briefly unavailable is worth a second attempt.
+      if(i >= attempts || e.message === "__expired__") throw e;
+      await new Promise(r => setTimeout(r, 900));
+    }
+  }
+}
+
 async function showApp(){
   const s = loadSession();
   $("loginView").classList.add("hidden");
@@ -1119,15 +1244,20 @@ async function showApp(){
   $("who").textContent = s.email || "";
   $("pageBody").className = "loading";
   $("pageBody").textContent = "טוען…";
+  // The first authenticated request after a deploy is the one that fills the
+  // server's key cache, and it is therefore the one most likely to meet a
+  // network blip. Reloading the page fixed it, which means one quiet retry
+  // fixes it too — without the person seeing an error at all.
   try{
-    [ME, INSIGHTS] = await Promise.all([api("/api/me"), api("/api/insights")]);
+    [ME, INSIGHTS] = await load(2);
   }catch(e){
     if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
     $("pageBody").className = "";
     $("pageBody").innerHTML =
       `<div class="card"><h2>לא הצלחנו לטעון את הנתונים</h2>
        <p class="sub">${esc(e.message)}</p>
-       <button class="primary" style="max-width:200px" onclick="location.reload()">נסה שוב</button></div>`;
+       <button class="primary" style="max-width:200px" id="retryBtn">נסה שוב</button></div>`;
+    $("retryBtn").onclick = showApp;
     return;
   }
   if(!location.hash) location.hash = "#/home";

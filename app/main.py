@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import io  # noqa: E402
+import json  # noqa: E402
+import logging  # noqa: E402
+import uuid  # noqa: E402
 from datetime import date  # noqa: E402
 
 import pandas as pd  # noqa: E402
@@ -15,9 +18,11 @@ from fastapi import (  # noqa: E402
     File,
     Form,
     HTTPException,
+    Request,
     UploadFile,
     status,
 )
+from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from app.accounts import Ambiguous, email_for_company, looks_like_email, translate  # noqa: E402
@@ -28,6 +33,31 @@ from app.ingest import MAX_BYTES, inspect, to_records  # noqa: E402
 from app.predict import predict  # noqa: E402
 
 app = FastAPI(title="FunnelIQ")
+
+log = logging.getLogger("funneliq")
+
+
+@app.exception_handler(Exception)
+def unhandled(request: Request, exc: Exception):
+    """
+    Anything nobody anticipated.
+
+    Without this, an unexpected failure reaches the browser as Starlette's bare
+    "Internal Server Error" and reaches us as nothing at all — which is exactly
+    what happened on a first sign-in that worked fine after a reload, leaving no
+    way to tell what had broken. The reference goes to the person and the
+    traceback goes to the log under the same value, so a report of "I saw an
+    error" becomes a line we can actually find.
+
+    The exception text is deliberately not sent to the browser: it can carry
+    connection strings and internal paths.
+    """
+    reference = uuid.uuid4().hex[:8]
+    log.exception("unhandled error [%s] on %s %s", reference, request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"שגיאה לא צפויה בשרת. מספר לאיתור: {reference}"},
+    )
 
 
 @app.get("/health")
@@ -548,9 +578,31 @@ def _read_csv(upload: UploadFile) -> pd.DataFrame:
     )
 
 
+def _mapping(raw: str | None) -> dict[str, str] | None:
+    """
+    The answers the person gave to the column questions, as JSON.
+
+    Every value is checked against the actual file before it renames anything
+    (see ingest.resolve_columns), so a malformed or hostile mapping can misname
+    a column but cannot invent one.
+    """
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "התאמת העמודות לא נשלחה כראוי.") from None
+    if not isinstance(parsed, dict):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "התאמת העמודות לא נשלחה כראוי.")
+    return {str(k): str(v) for k, v in parsed.items()}
+
+
 @app.post("/api/uploads/preview")
 def preview_upload(
     file: UploadFile = File(...),
+    mapping: str | None = Form(default=None),
     token: str = Depends(get_current_user_token),
 ):
     """
@@ -563,7 +615,7 @@ def preview_upload(
     steps waiting to be cleaned up.
     """
     get_user_client(token)  # rejects a bad token before any parsing work
-    report, _ = inspect(_read_csv(file))
+    report, _ = inspect(_read_csv(file), _mapping(mapping))
     return report.as_dict()
 
 
@@ -571,6 +623,7 @@ def preview_upload(
 def create_upload(
     file: UploadFile = File(...),
     period: str = Form(...),
+    mapping: str | None = Form(default=None),
     token: str = Depends(get_current_user_token),
 ):
     """
@@ -602,7 +655,7 @@ def create_upload(
             "מחק אותה קודם מהיסטוריית ההעלאות, ואז העלה מחדש.",
         )
 
-    report, clean = inspect(_read_csv(file))
+    report, clean = inspect(_read_csv(file), _mapping(mapping))
     if not report.ok:
         # 422: the request was well-formed and the file inside it was not.
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,

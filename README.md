@@ -94,6 +94,22 @@ the person confirms. Each month is a separate upload that can be deleted on its
 own. `funnel_marketing_data.csv` in this repo is a **test fixture**, not
 product data — the test suite reads it, and no company's workspace contains it.
 
+Columns are recognised rather than dictated. `app/mapping.py` matches whatever
+the export calls things — "תקציב", "Ad Spend" and "budget" are all `ad_budget`
+— and only applies a match it is confident about; anything weaker becomes a
+question with three example values from that column beside it, because the
+matcher just failed to decide from the name and the person should not have to
+either.
+
+The care in that file is aimed at one failure. `leads_answered` and
+`leads_not_answered` differ by three characters and every similarity measure
+rates each as an excellent match for the other; swapped, they load cleanly and
+invert every answer rate in the product with nothing to show for it. So
+negation is a veto applied before similarity is consulted, it covers words that
+negate by meaning rather than spelling (`lost`, `wasted`, `אבודים`) and Hebrew's
+attached prefixes (`שלא`), and twenty pairs of opposites are tested in both
+directions on every commit.
+
 `app/ingest.py` holds the rules, with no database or HTTP dependency, so what
 is accepted can be tested directly. Errors block a save (a missing column, text
 where a number belongs, more than 50,000 rows); warnings do not (rows whose

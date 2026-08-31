@@ -26,6 +26,8 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from app.mapping import propose
+
 # Every column the funnel_records table needs. Order matters only for messages.
 INTEGER_COLUMNS = [
     "ad_budget", "num_leads", "leads_answered", "leads_not_answered",
@@ -62,6 +64,11 @@ class Report:
     warnings: list[str] = field(default_factory=list)
     missing_values: dict[str, int] = field(default_factory=dict)
     preview: list[dict] = field(default_factory=list)
+    # What the matcher worked out, and what it could not. The interface turns
+    # the unresolved half into questions instead of a rejection.
+    resolved: dict[str, str] = field(default_factory=dict)
+    questions: list[dict] = field(default_factory=list)
+    samples: dict[str, list] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -73,6 +80,9 @@ class Report:
             "missingColumns": self.missing_columns, "extraColumns": self.extra_columns,
             "errors": self.errors, "warnings": self.warnings,
             "missingValues": self.missing_values, "preview": self.preview,
+            "resolved": self.resolved, "questions": self.questions,
+            "samples": self.samples,
+            "needsMapping": bool(self.questions),
         }
 
 
@@ -97,7 +107,102 @@ def _to_bool(series: pd.Series) -> tuple[pd.Series, int]:
     return out, int(out.isna().sum())
 
 
-def inspect(df: pd.DataFrame) -> tuple[Report, pd.DataFrame | None]:
+def resolve_columns(
+    df: pd.DataFrame, mapping: dict[str, str] | None = None
+) -> tuple[pd.DataFrame, dict[str, str], list[dict], dict[str, list]]:
+    """
+    Rename the file's headers to ours, and say what could not be decided.
+
+    A company should not have to rename its columns to match ours, so the
+    matcher in app.mapping proposes an assignment from whatever the export
+    calls things. Only confident matches are applied. A middling one becomes a
+    question rather than a default, because a person confirming a form tends to
+    accept what it already says — a wrong guess presented as an answer is worse
+    than an empty field.
+
+    An explicit mapping from the person always wins over the matcher, and is
+    checked against the file rather than trusted: a name that is not in this
+    file is dropped, not renamed to.
+    """
+    headers = [str(c) for c in df.columns]
+    proposal = propose(headers, REQUIRED_COLUMNS)
+
+    rename: dict[str, str] = {}
+    for canonical, header in (mapping or {}).items():
+        if canonical in REQUIRED_COLUMNS and header in headers and header not in rename:
+            rename[header] = canonical
+
+    claimed = set(rename.values())
+    for canonical, match in proposal["matched"].items():
+        if canonical in claimed or match["column"] in rename or not match["certain"]:
+            continue
+        rename[match["column"]] = canonical
+        claimed.add(canonical)
+
+    # Three example values per unclaimed column, so the person answering can
+    # see what is in it rather than deciding from its name alone — which is
+    # the very thing the matcher just failed to do.
+    spare = [h for h in headers if h not in rename]
+    samples = {
+        h: [None if v != v else v for v in df[h].head(3).tolist()]
+        for h in spare
+    }
+
+    questions = []
+    for canonical in REQUIRED_COLUMNS:
+        if canonical in claimed:
+            continue
+        guess = proposal["matched"].get(canonical)
+        questions.append({
+            "column": canonical,
+            "label": COLUMN_LABELS.get(canonical, canonical),
+            "suggestion": guess["column"] if guess else None,
+            "confidence": guess["confidence"] if guess else 0.0,
+            "options": spare,
+        })
+
+    # Built by selecting the chosen columns rather than by renaming in place.
+    # A file that already contains a column literally called "closed", while the
+    # person maps something else onto closed, produces two columns of that name
+    # under a rename — and every later read of df["closed"] gets a DataFrame
+    # instead of a Series and dies. Selecting takes exactly what was chosen and
+    # leaves the loser behind, which is also what the person asked for.
+    resolved = {canonical: header for header, canonical in rename.items()}
+    out = pd.DataFrame(
+        {canonical: df[header] for canonical, header in resolved.items()},
+        index=df.index,
+    )
+    return out, resolved, questions, samples
+
+
+# What each column means, for the question the person is asked. The names are
+# ours; the person has never seen them before and should not have to guess.
+COLUMN_LABELS = {
+    "ad_budget": "תקציב הקמפיין",
+    "num_leads": "כמה לידים הגיעו",
+    "leads_answered": "כמה לידים ענו לטלפון",
+    "leads_not_answered": "כמה לידים לא ענו",
+    "followup_1": "כמה הגיעו לשלב מעקב 1",
+    "followup_2": "כמה הגיעו לשלב מעקב 2",
+    "followup_3": "כמה הגיעו לשלב מעקב 3",
+    "followup_4": "כמה הגיעו לשלב מעקב 4",
+    "followup_5": "כמה הגיעו לשלב מעקב 5",
+    "closed": "כמה עסקאות נסגרו",
+    "not_closed": "כמה עסקאות לא נסגרו",
+    "calls_to_closed": "שיחות בממוצע עד סגירה",
+    "calls_to_not_closed": "שיחות שהושקעו בלי סגירה",
+    "customer_acquisition_cost": "עלות גיוס לקוח",
+    "ltv_months": "שווי הלקוח בחודשים",
+    "cumulative_profit": "רווח מצטבר",
+    "purchased": "האם הייתה רכישה",
+    "upsell": "האם הייתה מכירה נוספת",
+    "referred": "האם הלקוח הפנה אחרים",
+}
+
+
+def inspect(
+    df: pd.DataFrame, mapping: dict[str, str] | None = None
+) -> tuple[Report, pd.DataFrame | None]:
     """
     Check a parsed CSV and, when it is storable, hand back the cleaned frame.
 
@@ -106,17 +211,23 @@ def inspect(df: pd.DataFrame) -> tuple[Report, pd.DataFrame | None]:
     the first and nothing would notice.
     """
     r = Report()
-    df = normalise_headers(df)
-    r.columns = list(df.columns)
     r.rows = len(df)
+    original = [str(c) for c in df.columns]
+
+    df, r.resolved, r.questions, r.samples = resolve_columns(df, mapping)
+    r.columns = original
 
     r.missing_columns = [c for c in REQUIRED_COLUMNS if c not in df.columns]
-    r.extra_columns = [c for c in df.columns if c not in REQUIRED_COLUMNS]
+    r.extra_columns = [c for c in original if c not in r.resolved.values()]
 
     if r.missing_columns:
+        # Phrased as a question the interface will ask rather than as a failure,
+        # because that is what happens next: unresolved columns open the mapping
+        # dialog. A person who saves anyway still gets this as the reason.
         r.errors.append(
-            "חסרות עמודות בקובץ: " + ", ".join(r.missing_columns) +
-            ". שנה את שמות העמודות בקובץ כך שיתאימו, ונסה שוב."
+            "לא זיהינו " + str(len(r.missing_columns)) + " עמודות: " +
+            ", ".join(COLUMN_LABELS.get(c, c) for c in r.missing_columns) +
+            ". בחר לכל אחת את העמודה המתאימה בקובץ שלך."
         )
     if r.extra_columns:
         r.warnings.append(
