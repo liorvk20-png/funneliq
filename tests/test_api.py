@@ -221,6 +221,27 @@ def test_an_oversized_logo_is_refused():
     assert exc.value.status_code == 413
 
 
+@pytest.mark.parametrize("endpoint,table", [
+    ("/api/me", "companies"), ("/api/me", "profiles"), ("/api/seats", "profiles"),
+])
+def test_no_hot_endpoint_names_a_column_a_migration_may_not_have_added(endpoint, table):
+    """
+    PostgREST rejects the whole query if one named column is missing, and both
+    of these run on every sign-in. Naming logo_b64 in /api/me once took the
+    product down for every user between a deploy and its migration; naming
+    full_name would have done it again, and the first version of this test only
+    covered the companies table.
+    """
+    from pathlib import Path
+    source = (Path(__file__).resolve().parent.parent / "app" / "main.py").read_text()
+    handler = source.split(f'@app.get("{endpoint}")')[1].split("\n@app.")[0]
+    call = f'client.table("{table}")'
+    assert call in handler, f"{endpoint} does not read {table}"
+    after = handler.split(call)[1][:40]
+    assert 'select("*")' in after, (
+        f'{endpoint} names columns of {table}: {after.strip()[:40]}')
+
+
 def test_api_me_never_names_a_column_that_a_migration_might_not_have_added():
     """
     /api/me runs on every sign-in, and PostgREST rejects the whole query if one
@@ -724,3 +745,118 @@ def test_every_page_opens_the_same_way(dashboard):
         body = dashboard.split(f"PAGES.{page} = ")[1].split("\n};")[0]
         assert re.search(rf'pageHead\("{page}"', body), (
             f"PAGES.{page} builds its own header instead of using pageHead")
+
+
+# ------------------------------------------------ nothing used but undeclared
+# TARGET_LABEL was referenced in three places and declared in none: a splice had
+# removed the declaration and left the uses behind. The page loaded, every other
+# screen worked, and opening predictions threw "Can't find variable" at the
+# person. Nothing in the suite noticed, because everything here checked for
+# strings rather than for declarations.
+BROWSER_GLOBALS = {
+    "window", "document", "location", "history", "localStorage", "navigator",
+    "console", "fetch", "FormData", "Blob", "URL", "URLSearchParams", "Intl",
+    "Math", "JSON", "Object", "Array", "String", "Number", "Boolean", "Date",
+    "Promise", "Set", "Map", "Error", "RegExp", "FileReader", "AbortController",
+    "matchMedia", "setTimeout", "setInterval", "clearTimeout", "requestAnimationFrame",
+    "NaN", "Infinity", "undefined", "isNaN", "parseInt", "parseFloat", "encodeURIComponent",
+    "decodeURIComponent", "alert", "confirm", "prompt", "getComputedStyle",
+}
+
+
+def _app_script(dashboard: str) -> str:
+    import re
+    script = dashboard.rsplit("<script>", 1)[1].rsplit("</script>", 1)[0]
+    script = re.sub(r"/\*.*?\*/", "", script, flags=re.S)
+    script = re.sub(r"(?m)//.*$", "", script)
+    # Template literals and double-quoted strings hold Hebrew prose and CSS
+    # rather than identifiers, so they go.
+    #
+    # Single-quoted strings deliberately stay. Hebrew writes a geresh as an
+    # apostrophe -- "נק' אחוז" -- so treating one as a string delimiter makes
+    # the regex swallow everything to the next apostrophe, which in a first
+    # version ate the declaration line and reported a name that was right there.
+    script = re.sub(r"`(?:[^`\\]|\\.)*`", "``", script, flags=re.S)
+    script = re.sub(r'"(?:[^"\\]|\\.)*"', '""', script)
+    return script
+
+
+def test_every_module_level_name_used_is_also_declared(dashboard):
+    import re
+    script = _app_script(dashboard)
+    # Any indentation, not only column zero: a constant declared inside a
+    # function is still declared, and a first version flagged four of them.
+    declared = set(re.findall(r"\bfunction\s+([A-Za-z_$][\w$]*)", script))
+    declared |= set(re.findall(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)", script))
+    # Several names on one statement: `let ME = null, INSIGHTS = null;`
+    for statement in re.findall(r"\b(?:const|let|var)\s+([^;]+);", script):
+        declared |= set(re.findall(r"([A-Za-z_$][\w$]*)\s*=", statement))
+    declared |= BROWSER_GLOBALS
+
+    # Screaming-case names are this file's module constants, and they are the
+    # ones a bad splice removes while leaving every use behind.
+    used = set(re.findall(r"\b([A-Z][A-Z0-9_]{2,})\b", script))
+    missing = sorted(used - declared)
+    assert not missing, f"used but never declared: {missing}"
+
+
+# --------------------------------------------------- privacy, accessibility
+def test_both_documents_are_reachable_before_signing_up(dashboard):
+    """
+    "What happens to our data" is asked before a company uploads anything, not
+    after — so both documents open from the sign-in screen as well as inside.
+    """
+    login = dashboard.split('id="loginForm"')[1].split("</form>")[0]
+    assert 'id="legalLinks"' in login
+    assert 'data-legal="privacy"' in dashboard
+    assert 'data-legal="accessibility"' in dashboard
+
+
+@pytest.mark.parametrize("promise", [
+    "אין במערכת פרטים מזהים של לידים",
+    "אין אימון חוצה-ארגונים",
+    "איננו מוכרים מידע",
+    "בתוך 30 יום",
+])
+def test_the_privacy_policy_states_what_the_product_actually_does(dashboard, promise):
+    """
+    Each of these is a property the code enforces elsewhere: identifiers are
+    redacted by shape before a value reaches a sentence, models train on one
+    company's rows, and deleting a period removes its rows immediately. A
+    policy that claims something the code does not do is worse than none.
+    """
+    assert promise in dashboard
+
+
+@pytest.mark.parametrize("feature", [
+    "WCAG 2.1", "5568", "aria-live", "Escape",
+])
+def test_the_accessibility_statement_names_what_was_built(dashboard, feature):
+    assert feature in dashboard
+
+
+def test_the_legal_dialog_traps_focus_and_closes_on_escape(dashboard):
+    body = dashboard.split("function legalDialog(")[1].split("\n}")[0]
+    assert 'aria-modal="true"' in body
+    assert "Escape" in body and "e.shiftKey" in body
+
+
+# ------------------------------------------------------------- three roles
+@pytest.mark.parametrize("role", ["admin", "editor", "viewer"])
+def test_each_role_says_what_it_can_do(dashboard, role):
+    """
+    Somebody granting a seat has to know what they are granting. "editor" was
+    added because importing data and managing people are different jobs, and
+    an account with one should not automatically have the other.
+    """
+    labels = dashboard.split("const ROLE_LABEL = {")[1].split("\n};")[0]
+    assert f"{role}:" in labels
+    entry = labels.split(f"{role}:")[1].split("},")[0]
+    assert "can:" in entry and len(entry.split("can:")[1]) > 20
+
+
+def test_the_workspace_list_shows_people_and_not_only_addresses(dashboard):
+    """An address is the one thing a colleague already knows, and the least
+    useful for telling people apart."""
+    seats = dashboard.split("function profileSeats(){")[1].split("\n}")[0]
+    assert "full_name" in seats and "job_title" in seats

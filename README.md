@@ -54,7 +54,8 @@ migrations/     schema history; 002 turns one company into an engine anyone can 
                 003 backfills workspaces for accounts that predate the trigger,
                 004 lets a company rename itself, 005 stores its own models,
                 006 stores its logo, 007 adds findings and narrative,
-                008 adds seats and invitations
+                008 adds seats and invitations,
+                009 adds member details and the editor role
 ```
 
 ## Running it locally
@@ -193,6 +194,29 @@ mistyped code can still register, and can always be invited again.
 
 `public.current_member_role()` is named that way because `current_role` is a
 reserved SQL keyword returning the connection's database role.
+
+### Three roles
+
+`admin` administers people as well as data; `editor` imports and edits data and
+manages nobody; `viewer` sees everything and changes nothing. Reading is
+identical for all three — seeing the workspace is what a seat is for — and the
+split is enforced by RLS through `can_edit_data()`, not by hiding buttons.
+
+The role a person picks at sign-up is a request and nothing more. Whoever opens
+a workspace administers it; whoever joins gets the role their invitation
+carries. A field the applicant fills in cannot decide their own access.
+
+### Two documents
+
+A privacy policy and an accessibility statement, both reachable from the
+sign-in screen as well as from inside, because "what happens to our data" is a
+question asked before a company uploads anything.
+
+Every claim in the privacy policy is a property the code enforces elsewhere:
+lead identifiers are redacted by shape before a value can reach a sentence,
+models train on one company's rows and never across companies, and deleting a
+period removes its rows immediately. A policy that promises something the code
+does not do is worse than no policy.
 
 ## Simulating a customer
 
