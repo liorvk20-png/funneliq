@@ -12,7 +12,7 @@ from app.main import app
 client = TestClient(app)
 
 GATED = ["/api/insights", "/api/funnel-records/sample", "/api/predict/1",
-         "/api/me", "/api/models", "/api/analysis"]
+         "/api/me", "/api/models", "/api/analysis", "/api/seats"]
 
 
 def test_health_is_public():
@@ -347,3 +347,65 @@ def test_a_network_outage_is_not_reported_as_a_bad_token(monkeypatch):
     # A well-formed-looking token and a malformed one both hit the same outage.
     for header in ("Bearer a.b.c", "Bearer garbage"):
         assert client.get("/api/me", headers={"Authorization": header}).status_code == 503
+
+
+# ------------------------------------------------------- one of each thing
+# Written after a bad splice duplicated 886 lines of the dashboard: two
+# PAGES.profile definitions, two upload sections. The JavaScript still parsed,
+# every id was still present, and the whole suite passed — because presence was
+# all anything checked. The later definition silently won.
+@pytest.mark.parametrize("marker", [
+    "PAGES.profile = () => {",
+    "PAGES.upload = () => {",
+    "PAGES.home = () => {",
+    "function wireUpload()",
+    "function wireProfile()",
+    "function monthPicker(",
+    "function showForgot()",
+    "function showReset(",
+    "const PROFILE_TABS",
+    "const COLUMN_DOCS",
+    "const ROUTE_ORDER",
+    "async function showApp()",
+])
+def test_each_module_is_defined_exactly_once(dashboard, marker):
+    assert dashboard.count(marker) == 1, (
+        f"{marker!r} appears {dashboard.count(marker)} times — a duplicated "
+        "block parses fine and the later copy silently wins")
+
+
+def test_the_month_field_does_not_rely_on_a_browser_that_lacks_it(dashboard):
+    """
+    Safari does not implement input[type=month]: it renders a plain text box
+    with no calendar, no format hint and no validation. On a Mac the upload
+    form asked for a month and accepted any sentence.
+    """
+    assert 'type="month"' not in dashboard
+    assert 'class="mp-grid"' in dashboard or "mp-grid" in dashboard
+
+
+def test_the_recovery_token_never_reaches_the_server_in_a_url(dashboard):
+    """
+    It arrives in the fragment, which browsers do not send upstream, and is
+    cleared from the address bar immediately — a recovery link left visible is
+    a password reset anyone at the screen can replay.
+    """
+    assert "location.hash" in dashboard
+    assert "history.replaceState" in dashboard
+
+
+def test_vertical_rhythm_comes_from_one_rule(dashboard):
+    """
+    Spacing used to come from three places at once — a margin on .card, none on
+    .grid, and hand-written 22px spacers between them. Wherever a grid met a
+    card the gap came from only one side and the two sat flush, which is what
+    "the boxes ride on each other" looked like.
+    """
+    css = dashboard.split("<style>")[1].split("</style>")[0]
+    assert "#pageBody{display:flex;flex-direction:column;gap:" in css
+    # No block carries its own bottom margin any more, so none can disagree.
+    assert "margin-bottom" not in css.split(".card{")[1].split("}")[0]
+    # Spacer divs, not every 22px: a radius token and a bar height use it too,
+    # and a first version of this assertion flagged both.
+    assert "style='height:22px'" not in dashboard
+    assert 'style="margin-top:22px"' not in dashboard

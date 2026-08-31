@@ -139,3 +139,65 @@ def test_login_and_signup_need_no_token():
     """They run before anyone has one; requiring auth here would be a deadlock."""
     for path in ("/api/login", "/api/signup"):
         assert client.post(path, json={}).status_code == 400
+
+
+# ------------------------------------------------------ password recovery
+def test_a_reset_request_never_reveals_whether_an_account_exists():
+    """
+    The same answer either way. Anything else turns this endpoint into a
+    membership check: type an address, read the response, learn whether that
+    person uses the product.
+    """
+    unknown = client.post("/api/password/forgot",
+                          json={"email": "nobody-at-all@funneliq.test"})
+    assert unknown.status_code == 200 and unknown.json() == {"sent": True}
+
+
+def test_a_malformed_address_is_refused_before_anything_is_sent():
+    r = client.post("/api/password/forgot", json={"email": "not-an-email"})
+    assert r.status_code == 400
+
+
+@pytest.mark.parametrize("body,reason", [
+    ({"accessToken": "", "password": "abcdef"}, "no token"),
+    ({"accessToken": "x.y.z", "password": "12345"}, "password too short"),
+    ({"password": "abcdef"}, "token missing entirely"),
+])
+def test_a_reset_without_what_it_needs_is_refused(body, reason):
+    r = client.post("/api/password/reset", json=body)
+    assert r.status_code == 400, reason
+    assert any("֐" <= ch <= "ת" for ch in r.json()["detail"])
+
+
+@pytest.mark.parametrize("english", [
+    "Invalid JWT structure",
+    "JWT expired",
+    "New password should be different from the old password.",
+])
+def test_recovery_errors_reach_the_person_in_hebrew(english):
+    """These are the three a person actually meets on a reset link."""
+    assert any("֐" <= ch <= "ת" for ch in translate(english))
+
+
+# ------------------------------------------------------------------ seats
+def test_signing_up_needs_a_company_or_an_invitation():
+    """
+    Two ways in, and they need different fields. Someone joining a workspace
+    has a code, not a company name — asking them to invent one would create a
+    second workspace with a single member, which is what the invitation exists
+    to prevent.
+    """
+    r = client.post("/api/signup", json={"email": "a@b.com", "password": "secret123"})
+    assert r.status_code == 400
+    assert "חברה" in r.json()["detail"]
+
+
+@pytest.mark.parametrize("body", [
+    {"email": "not-an-email", "role": "viewer"},
+    {"email": "a@b.com", "role": "superuser"},
+    {},
+])
+def test_a_bad_invitation_is_refused(body, unreachable_jwks_stubbed):
+    """The token check runs first, which is the order that keeps an
+    unauthenticated caller away from the parser."""
+    assert client.post("/api/seats", json=body).status_code == 401

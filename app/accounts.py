@@ -40,6 +40,14 @@ MESSAGES: list[tuple[str, str]] = [
      "יותר מדי ניסיונות בזמן קצר. המתן דקה ונסה שוב."),
     ("rate limit", "יותר מדי ניסיונות בזמן קצר. המתן דקה ונסה שוב."),
     ("weak password", "הסיסמה חלשה מדי. הוסף אורך או תווים מסוגים שונים."),
+    # Recovery links: a token that is truncated, expired or already spent all
+    # arrive here, and all three mean the same thing to the person reading it.
+    ("invalid jwt", "קישור האיפוס אינו תקין או שפג תוקפו. בקש קישור חדש."),
+    ("jwt expired", "קישור האיפוס פג. בקש קישור חדש."),
+    ("token has expired", "הקישור פג. בקש קישור חדש."),
+    ("same password", "הסיסמה החדשה זהה לקודמת. בחר סיסמה אחרת."),
+    ("new password should be different",
+     "הסיסמה החדשה זהה לקודמת. בחר סיסמה אחרת."),
 ]
 
 

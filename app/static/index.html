@@ -147,6 +147,14 @@ body{
   margin:0;
   min-height:100dvh;
   background:var(--bg);
+  /* Two very quiet washes, placed where nobody is reading, so the panels sit
+     on something instead of floating on one flat fill. */
+  background-image:
+    radial-gradient(1100px 560px at 88% -12%,
+      color-mix(in srgb, var(--brand) 6%, transparent), transparent 60%),
+    radial-gradient(860px 480px at -6% 106%,
+      color-mix(in srgb, var(--brand) 4%, transparent), transparent 56%);
+  background-attachment:fixed;
   color:var(--text);
   font:400 var(--t-md)/1.6 "Assistant", -apple-system, BlinkMacSystemFont,
        "Segoe UI", "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif;
@@ -261,6 +269,63 @@ select{appearance:none;
 .tabs button[aria-selected="true"]{background:var(--surface);color:var(--text);
                                    box-shadow:var(--sh-sm)}
 
+.social{display:flex;flex-direction:column;gap:var(--s-2)}
+.social .btn{justify-content:center;gap:10px}
+.or{display:flex;align-items:center;gap:var(--s-3);margin:var(--s-5) 0;
+    color:var(--text-3);font-size:var(--t-sm)}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+
+.choice{border:0;padding:0;margin:0 0 var(--s-5)}
+.choice legend{font-size:var(--t-sm);font-weight:600;color:var(--text-2);
+               margin-bottom:var(--s-2);padding:0}
+.pick{display:flex;gap:10px;align-items:flex-start;padding:var(--s-3);
+      border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;
+      margin-bottom:var(--s-2);transition:all var(--fast) var(--ease)}
+.pick:hover{border-color:var(--line-strong);background:var(--surface-2)}
+.pick:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
+.pick input{width:auto;margin-top:3px;accent-color:var(--brand);flex:none}
+.pick b{display:block;font-size:var(--t-md)}
+.pick em{display:block;font-style:normal;font-size:var(--t-xs);color:var(--text-2);
+         margin-top:2px;line-height:1.5}
+
+.segmented{display:flex;gap:4px;flex-wrap:wrap;background:var(--surface-3);
+  border:1px solid var(--line);border-radius:var(--r-md);padding:4px;
+  margin-bottom:var(--s-6)}
+.segmented button{border:0;background:transparent;font:inherit;font-size:var(--t-md);
+  font-weight:600;color:var(--text-2);padding:8px 14px;border-radius:var(--r-sm);
+  cursor:pointer;transition:all var(--fast) var(--ease);white-space:nowrap}
+.segmented button:hover{color:var(--text)}
+.segmented button[aria-selected="true"]{background:var(--surface);color:var(--text);
+  box-shadow:var(--sh-sm)}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-sm);
+  background:var(--surface-3);border:1px solid var(--line);border-radius:var(--r-xs);
+  padding:3px 8px;cursor:pointer;user-select:all}
+.code:hover{border-color:var(--brand);color:var(--brand-ink)}
+
+/* --------------------------------------------------------- month picker */
+.mp{position:relative}
+.mp-field{display:flex;align-items:center;gap:var(--s-2);width:100%;
+  padding:10px var(--s-3);border:1px solid var(--line-strong);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--text);font:inherit;font-size:var(--t-md);
+  cursor:pointer;text-align:start;transition:border-color var(--fast) var(--ease),
+  box-shadow var(--fast) var(--ease)}
+.mp-field:hover{border-color:var(--n-400)}
+.mp-field[aria-expanded="true"]{border-color:var(--brand);box-shadow:var(--ring)}
+.mp-text{flex:1;font-weight:600}
+.mp-caret{color:var(--text-3)}
+.mp-pop{position:absolute;z-index:30;inset-inline-start:0;top:calc(100% + 6px);
+  width:min(320px,86vw);background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-md);box-shadow:var(--sh-lg);padding:var(--s-3)}
+.mp-head{display:flex;align-items:center;justify-content:space-between;
+  padding:0 var(--s-1) var(--s-3);font-size:var(--t-lg)}
+.mp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mp-cell{padding:9px 4px;border:1px solid transparent;border-radius:var(--r-xs);
+  background:transparent;color:var(--text);font:inherit;font-size:var(--t-sm);
+  font-weight:600;cursor:pointer;transition:all var(--fast) var(--ease)}
+.mp-cell:hover:not([disabled]){background:var(--surface-3)}
+.mp-cell.on{background:var(--brand);color:var(--on-brand)}
+.mp-cell[disabled]{opacity:.35;cursor:not-allowed}
+
 .pw{position:relative}
 .pw input{padding-inline-start:66px}
 .pw button{position:absolute;inset-inline-start:5px;top:50%;transform:translateY(-50%);
@@ -279,7 +344,9 @@ select{appearance:none;
 .side{
   position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;
   gap:var(--s-6);padding:var(--s-6) var(--s-4);
-  background:var(--surface);border-inline-start:1px solid var(--line);
+  background:linear-gradient(to bottom,
+      color-mix(in srgb,var(--surface) 95%,var(--brand) 5%), var(--surface) 240px);
+  border-inline-start:1px solid var(--line);
 }
 .side-head{display:flex;align-items:center;justify-content:space-between;
            gap:var(--s-2);padding-inline:var(--s-2)}
@@ -317,6 +384,9 @@ select{appearance:none;
                overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 main{padding:var(--s-8) var(--s-10) var(--s-16);max-width:1180px;width:100%}
+/* One rule owns the space between blocks. Every section, grid and callout is a
+   direct child here, so nothing carries its own margin and nothing disagrees. */
+#pageBody{display:flex;flex-direction:column;gap:var(--s-5)}
 .page-head{margin-bottom:var(--s-8)}
 .page-head h1{margin-bottom:var(--s-2)}
 .page-head p{color:var(--text-2);max-width:68ch;font-size:var(--t-lg)}
@@ -343,7 +413,7 @@ main{padding:var(--s-8) var(--s-10) var(--s-16);max-width:1180px;width:100%}
 
 /* ═══════════════════════════════════════════════════════════ surfaces */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
-      padding:var(--s-6);box-shadow:var(--sh-sm);margin-bottom:var(--s-5)}
+      padding:var(--s-6);box-shadow:var(--sh-sm);position:relative}
 .card>h2{margin-bottom:var(--s-1)}
 .card>.sub{color:var(--text-2);font-size:var(--t-md);margin-bottom:var(--s-5);max-width:74ch}
 .card-head{display:flex;align-items:flex-start;justify-content:space-between;
@@ -357,14 +427,24 @@ main{padding:var(--s-8) var(--s-10) var(--s-16);max-width:1180px;width:100%}
       padding:var(--s-5);box-shadow:var(--sh-sm);
       transition:box-shadow var(--base) var(--ease), transform var(--base) var(--ease)}
 .tile:hover{box-shadow:var(--sh-md);transform:translateY(-1px)}
-.tile .k{font-size:var(--t-sm);color:var(--text-2);font-weight:600}
-.tile .v{font-size:var(--t-3xl);font-weight:800;letter-spacing:-.03em;
-         margin-top:var(--s-2);line-height:1.1}
+.tile{position:relative;overflow:hidden}
+/* A hairline rail on hover. Four identical rectangles in a row read as a
+   table; this gives the one under the pointer an edge to be read from. */
+.tile::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;
+  width:3px;background:var(--brand);opacity:0;
+  transition:opacity var(--base) var(--ease)}
+.tile:hover::before{opacity:.7}
+.tile .k{font-size:var(--t-sm);color:var(--text-2);font-weight:600;
+  letter-spacing:.01em}
+.tile .v{font-size:var(--t-3xl);font-weight:800;letter-spacing:-.035em;
+         margin-top:var(--s-2);line-height:1.05;
+         font-variant-numeric:tabular-nums lining-nums}
 .tile .n{font-size:var(--t-xs);color:var(--text-3);margin-top:var(--s-2);line-height:1.5}
 .tile .actual{font-size:var(--t-xs);color:var(--text-3);margin-top:var(--s-1)}
 .null{color:var(--text-3);font-weight:400}
 
-.callout{border-radius:var(--r-md);padding:var(--s-4) var(--s-5);margin-bottom:var(--s-5);
+.card > .callout:not(:first-child){margin-top:var(--s-5)}
+.callout{border-radius:var(--r-md);padding:var(--s-4) var(--s-5);
          font-size:var(--t-md);line-height:1.7;border:1px solid transparent}
 .callout.brand{background:var(--brand-soft);color:var(--text);
                border-color:color-mix(in srgb,var(--brand) 22%,transparent)}
@@ -390,7 +470,9 @@ th{position:sticky;top:0;z-index:1;background:var(--surface-2);
    text-transform:uppercase;letter-spacing:.05em}
 tbody tr:last-child td{border-bottom:0}
 tbody tr{transition:background var(--fast) var(--ease)}
-tbody tr:hover{background:var(--surface-2)}
+tbody tr:nth-child(even){background:color-mix(in srgb,var(--surface-2) 60%,transparent)}
+tbody tr:hover{background:var(--surface-3)}
+td bdi,td .num{font-variant-numeric:tabular-nums lining-nums}
 tr.pos td{background:var(--pos-50)} tr.neg td{background:var(--neg-50)}
 
 .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
@@ -417,6 +499,7 @@ tr.pos td{background:var(--pos-50)} tr.neg td{background:var(--neg-50)}
 .filters{display:grid;gap:var(--s-4);grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
          background:var(--surface-2);border:1px solid var(--line);
          border-radius:var(--r-md);padding:var(--s-5);margin-bottom:var(--s-5)}
+.sub-head{margin-top:var(--s-6);margin-bottom:var(--s-2)}
 .filters label{font-size:var(--t-xs)}
 .pred{display:grid;gap:var(--s-4);grid-template-columns:repeat(auto-fit,minmax(215px,1fr));
       margin-top:var(--s-5)}
@@ -512,6 +595,31 @@ details[open]>summary::before{transform:rotate(-90deg)}
       <button type="button" id="tabSignUp" role="tab" aria-selected="false">פתיחת חשבון</button>
     </div>
 
+    <div id="socialBlock" class="hidden">
+      <div id="socialButtons" class="social"></div>
+      <div class="or"><span>או באמצעות אימייל</span></div>
+    </div>
+
+    <fieldset id="modeField" class="choice hidden">
+      <legend>איך אתה מצטרף?</legend>
+      <label class="pick">
+        <input type="radio" name="joinMode" value="create" checked>
+        <span><b>אני פותח סביבת עבודה חדשה</b>
+        <em>אני מנהל את החשבון, ואוכל להזמין קולגות ולהעלות נתונים.</em></span>
+      </label>
+      <label class="pick">
+        <input type="radio" name="joinMode" value="join">
+        <span><b>הוזמנתי לסביבת עבודה קיימת</b>
+        <em>קיבלתי קוד הזמנה מהמנהל בחברה שלי.</em></span>
+      </label>
+    </fieldset>
+
+    <div id="inviteField" class="field hidden">
+      <label for="inviteCode">קוד הזמנה</label>
+      <input id="inviteCode" type="text" autocomplete="one-time-code" spellcheck="false">
+      <p class="hint">הקוד הונפק לכתובת האימייל שלך בלבד, ותקף לשבועיים.</p>
+    </div>
+
     <div id="companyField" class="field hidden">
       <label for="company">שם החברה</label>
       <input id="company" type="text" autocomplete="organization" placeholder="לדוגמה: נורת'באונד מדיה">
@@ -534,6 +642,9 @@ details[open]>summary::before{transform:rotate(-90deg)}
     </div>
 
     <button type="submit" class="btn btn-primary btn-block" id="loginBtn">כניסה</button>
+    <p id="forgotRow" style="text-align:center;margin-top:var(--s-4)">
+      <button type="button" class="btn btn-ghost btn-sm" id="forgotBtn">שכחתי סיסמה</button>
+    </p>
     <div class="msg err" id="loginErr" role="alert"></div>
     <div class="msg ok" id="loginOk" role="status"></div>
   </form>
@@ -657,7 +768,6 @@ async function post(path, body){
   return data;
 }
 
-const signUp = (email, password, company) => post("/api/signup", { email, password, company });
 const signIn = (identifier, password) => post("/api/login", { identifier, password });
 
 function saveSession(d){
@@ -950,7 +1060,7 @@ PAGES.home = () => {
       <li><a href="#/profile">לבדוק את הפרופיל</a> ואת היסטוריית ההעלאות.</li>
     </ul></section>`);
 
-  return head + tiles + "<div style='height:22px'></div>" + cards.join("");
+  return head + tiles + cards.join("");
 };
 
 PAGES.data = () => {
@@ -968,7 +1078,7 @@ PAGES.data = () => {
     ${tile("רווח ממוצע", money(s.avgProfit))}
   </div>`;
 
-  const tierCard = `<section class="card" style="margin-top:22px"><h2>קמפיינים לפי רמת תקציב</h2>
+  const tierCard = `<section class="card"><h2>קמפיינים לפי רמת תקציב</h2>
     <p class="sub">נמוכה: עד ₪1,500 · בינונית: עד ₪5,000 · גבוהה: מעל ₪5,000</p>
     ${barRows(s.tiers.map(t => ({ label:TIER_HE[t.tier] || t.tier, value:t.count,
                                   display:num(t.count) + " קמפיינים" })))}</section>`;
@@ -1094,7 +1204,7 @@ PAGES.funnel = () => {
         כלומר איכות הלידים מסבירה רק ${pct(f.explainedByQualityPct)} מהפער.</div>
       ${barRows(callRows)}
       <p class="note">רק קבוצות עם 10 קמפיינים לפחות מוצגות.</p>
-      <h3 style="margin-top:22px">אותה השוואה, בתוך רמות איכות זהות</h3>
+      <h3 class="sub-head">אותה השוואה, בתוך רמות איכות זהות</h3>
       <p class="sub">רווח ממוצע לקמפיין. שיעור המענה נקבע לפני כל החלטה על מעקב, ולכן הוא מפריד בין "לידים גרועים" לבין "השיחות עשו את זה".</p>
       <div class="table-wrap"><table><thead><tr>
         <th>איכות הלידים</th><th>עד 2 שיחות</th><th>3–4 שיחות</th><th>5+ שיחות</th>
@@ -1170,9 +1280,10 @@ PAGES.upload = () => {
     <h2>קובץ חדש</h2>
     <p class="sub">כל חודש נשמר בנפרד, כך שאפשר להשוות בין חודשים ולבטל חודש בלי לגעת באחרים.</p>
 
-    <div class="field" style="max-width:240px">
-      <label for="upPeriod">החודש שהנתונים מתארים</label>
-      <input id="upPeriod" type="month" value="${thisMonth}" max="${thisMonth}">
+    <div class="field" style="max-width:260px">
+      <label id="upPeriodLabel">החודש שהנתונים מתארים</label>
+      ${monthPicker("upPeriod", thisMonth)}
+      <p class="hint">חודשים עתידיים חסומים — אין להם עדיין נתונים.</p>
     </div>
 
     <div class="drop" id="drop" role="button" tabindex="0" aria-describedby="dropHint">
@@ -1458,6 +1569,105 @@ function wireLogo(){
   };
 }
 
+/* ══════════════════════════════════════════════════════ month picker
+   Safari does not implement input[type=month]. It renders a plain text box —
+   no calendar, no format hint, no validation — so on a Mac the field asked for
+   a month and accepted any sentence, and the only thing standing between a
+   typo and a rejected upload was a 400 from the server after the fact.
+
+   This is a small calendar of its own: twelve buttons and a year stepper,
+   keyboard-operable, and the value it produces is always YYYY-MM because
+   nothing else can be entered. */
+
+const MONTHS_HE = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+                   "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+
+function monthPicker(id, initial){
+  const [y, m] = (initial || new Date().toISOString().slice(0, 7)).split("-");
+  return `<div class="mp" id="${id}" data-value="${y}-${m}">
+      <button type="button" class="mp-field" aria-haspopup="dialog" aria-expanded="false">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.9" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/>
+             <path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        <span class="mp-text">${MONTHS_HE[+m - 1]} <bdi dir="ltr">${y}</bdi></span>
+        <svg class="mp-caret" width="14" height="14" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="mp-pop" role="dialog" aria-label="בחירת חודש" hidden></div>
+    </div>`;
+}
+
+function wireMonthPicker(id, { max } = {}){
+  const root = $(id);
+  if(!root) return;
+  const field = root.querySelector(".mp-field");
+  const pop = root.querySelector(".mp-pop");
+  const limit = max || new Date().toISOString().slice(0, 7);
+  let year = +root.dataset.value.slice(0, 4);
+
+  const paint = () => {
+    const [chosenYear, chosenMonth] = root.dataset.value.split("-");
+    const [maxYear, maxMonth] = limit.split("-");
+    pop.innerHTML = `
+      <div class="mp-head">
+        <button type="button" class="btn btn-ghost btn-icon" data-step="-1" aria-label="שנה קודמת">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <strong class="num" dir="ltr">${year}</strong>
+        <button type="button" class="btn btn-ghost btn-icon" data-step="1" aria-label="שנה הבאה"
+                ${year >= +maxYear ? "disabled" : ""}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      </div>
+      <div class="mp-grid">${MONTHS_HE.map((name, index) => {
+        const value = `${year}-${String(index + 1).padStart(2, "0")}`;
+        // A month that has not happened yet cannot have data in it.
+        const future = year > +maxYear || (year === +maxYear && index + 1 > +maxMonth);
+        const selected = +chosenYear === year && +chosenMonth === index + 1;
+        return `<button type="button" data-month="${value}" ${future ? "disabled" : ""}
+                 class="mp-cell${selected ? " on" : ""}"
+                 aria-pressed="${selected}">${name}</button>`;
+      }).join("")}</div>`;
+
+    pop.querySelectorAll("[data-step]").forEach(button => {
+      button.onclick = () => { year += +button.dataset.step; paint(); };
+    });
+    pop.querySelectorAll("[data-month]").forEach(button => {
+      button.onclick = () => {
+        root.dataset.value = button.dataset.month;
+        const [chosen, monthIndex] = button.dataset.month.split("-");
+        root.querySelector(".mp-text").innerHTML =
+          `${MONTHS_HE[+monthIndex - 1]} <bdi dir="ltr">${chosen}</bdi>`;
+        close();
+      };
+    });
+  };
+
+  const open = () => {
+    pop.hidden = false;
+    field.setAttribute("aria-expanded", "true");
+    year = +root.dataset.value.slice(0, 4);
+    paint();
+    document.addEventListener("click", outside, true);
+    document.addEventListener("keydown", onKey);
+    const chosen = pop.querySelector(".mp-cell.on") || pop.querySelector(".mp-cell:not([disabled])");
+    if(chosen) chosen.focus();
+  };
+  const close = () => {
+    pop.hidden = true;
+    field.setAttribute("aria-expanded", "false");
+    document.removeEventListener("click", outside, true);
+    document.removeEventListener("keydown", onKey);
+    field.focus();
+  };
+  const outside = (e) => { if(!root.contains(e.target)) close(); };
+  const onKey = (e) => { if(e.key === "Escape"){ e.stopPropagation(); close(); } };
+
+  field.onclick = () => (pop.hidden ? open() : close());
+}
+
+const monthValue = (id) => ($(id) ? $(id).dataset.value : null);
+
 /* --------------------------------------------------------- page: upload */
 function wireUpload(){
   const fileInput = $("upFile"), drop = $("drop");
@@ -1488,6 +1698,7 @@ function wireUpload(){
     e.preventDefault(); drop.classList.remove("over");
   }));
   drop.addEventListener("drop", e => setFile(e.dataTransfer.files[0] || null));
+  wireMonthPicker("upPeriod");
 
   async function send(path, extra){
     const body = new FormData();
@@ -1536,7 +1747,7 @@ function wireUpload(){
     }
     if(r.preview && r.preview.length && !saved){
       const keys = Object.keys(r.preview[0]);
-      html += `<h3 style="margin-top:22px">כך המערכת קראה את חמש השורות הראשונות</h3>
+      html += `<h3 class="sub-head">כך המערכת קראה את חמש השורות הראשונות</h3>
         <p class="sub">אם משהו כאן נראה לא נכון, הבעיה היא בקובץ ולא בתצוגה.</p>
         <div class="table-wrap"><table><thead><tr>${
           keys.map(k => `<th><bdi dir="ltr">${esc(k)}</bdi></th>`).join("")
@@ -1570,7 +1781,7 @@ function wireUpload(){
     if(!verified) return;
     const btn = $("upSave"); btn.disabled = true; btn.textContent = "שומר…";
     try{
-      const r = await send("/api/uploads", { period: $("upPeriod").value });
+      const r = await send("/api/uploads", { period: monthValue("upPeriod") });
       if(r.failed){ renderReport(r, false); return; }
       // The whole product changes shape the moment data exists, so both
       // payloads are refetched rather than patched. A stale INSIGHTS here is
@@ -1644,44 +1855,154 @@ function wireUploadDeletes(){
   });
 }
 
-PAGES.profile = () => {
-  const c = ME && ME.company;
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">פרופיל</h1>
-    <p>פרטי החשבון וסביבת העבודה שלך.</p></div>`;
+/* ══════════════════════════════════════════════════════ page: profile
+   Six sections behind tabs rather than one long scroll. The last three are
+   deliberately empty and say so: a screen that looks like a working billing
+   page and does nothing is worse than a line admitting it is not built, both
+   for the person reading it and for whoever has to build it later. */
 
-  const details = `<section class="card"><h2>החשבון שלי</h2>
+const PROFILE_TABS = [
+  ["account", "החשבון שלי"],
+  ["seats", "משתמשים והרשאות"],
+  ["brand", "מיתוג"],
+  ["notifications", "התראות"],
+  ["billing", "תשלומים"],
+  ["support", "תמיכה"],
+];
+
+let PROFILE_TAB = "account";
+let SEATS = null;
+
+PAGES.profile = () => {
+  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">פרופיל והגדרות</h1>
+    <p>פרטי החשבון, מי עוד רואה את הנתונים, ומה המערכת מיידעת אותך עליו.</p></div>`;
+
+  const nav = `<div class="segmented" role="tablist" aria-label="הגדרות">
+    ${PROFILE_TABS.map(([key, label]) => `
+      <button type="button" role="tab" data-ptab="${key}"
+              aria-selected="${key === PROFILE_TAB}">${label}</button>`).join("")}
+  </div>`;
+
+  return head + nav + `<div id="profileBody">${profileSection()}</div>`;
+};
+
+function profileSection(){
+  return ({
+    account: profileAccount,
+    seats: profileSeats,
+    brand: profileBrand,
+    notifications: profileNotifications,
+    billing: profileBilling,
+    support: profileSupport,
+  }[PROFILE_TAB] || profileAccount)();
+}
+
+function profileAccount(){
+  const c = ME.company;
+  return `<section class="card"><h2>החשבון שלי</h2>
     <div class="table-wrap"><table><tbody>
       <tr><th style="width:190px">חברה</th><td>
         <span id="coName">${c ? esc(c.name) : na()}</span>
-        <button class="btn btn-ghost btn-sm" id="coEdit"
-                style="margin-inline-start:8px">שנה שם</button>
-        <span id="coForm" class="hidden" style="display:flex;gap:8px;align-items:center">
+        ${ME.canManage ? `<button class="btn btn-ghost btn-sm" id="coEdit"
+             style="margin-inline-start:8px">שנה שם</button>` : ""}
+        <span id="coForm" class="hidden" style="display:none;gap:8px;align-items:center">
           <input id="coInput" type="text" maxlength="120" style="max-width:260px"
                  value="${c ? esc(c.name) : ""}" aria-label="שם החברה">
           <button class="btn btn-primary btn-sm" id="coSave">שמור</button>
           <button class="btn btn-secondary btn-sm" id="coCancel">ביטול</button>
         </span>
-        <span id="coMsg" class="n"></span>
       </td></tr>
       <tr><th>אימייל</th><td><bdi dir="ltr">${esc(ME.email || "")}</bdi></td></tr>
-      <tr><th>הרשאה</th><td>${ME.role === "admin" ? "מנהל" : "צפייה בלבד"}</td></tr>
-      <tr><th>תאריך הצטרפות</th><td>${ME.joinedAt ? new Date(ME.joinedAt).toLocaleDateString("he-IL") : na()}</td></tr>
+      <tr><th>הרשאה</th><td>${ME.canManage
+        ? '<span class="badge brand">מנהל סביבת עבודה</span>'
+        : '<span class="badge mute">צפייה בלבד</span>'}</td></tr>
+      <tr><th>תאריך הצטרפות</th><td>${ME.joinedAt
+        ? new Date(ME.joinedAt).toLocaleDateString("he-IL") : na()}</td></tr>
       <tr><th>קמפיינים במערכת</th><td>${num(ME.recordCount)}</td></tr>
     </tbody></table></div>
-    <div class="callout warn">הנתונים שלך מבודדים ברמת מסד הנתונים. אף חברה אחרת לא יכולה
-      לקרוא אותם, גם לא דרך באג בקוד — Postgres מסרב לפני שהשאילתה חוזרת.</div>
+    <div class="callout warn" style="margin-top:20px;margin-bottom:0">הנתונים שלך
+      מבודדים ברמת מסד הנתונים. אף חברה אחרת לא יכולה לקרוא אותם, גם לא דרך באג
+      בקוד — Postgres מסרב לפני שהשאילתה חוזרת.</div>
+  </section>
+  <section class="card"><h2>יציאה</h2>
+    <p class="sub">ההתנתקות מוחקת את פרטי ההתחברות מהדפדפן הזה בלבד.</p>
+    <button class="btn btn-secondary" id="logoutBtn2">התנתקות</button>
   </section>`;
+}
 
-  const logo = c && c.logo_b64;
-  const logoCard = `<section class="card">
+function profileSeats(){
+  if(!ME.canManage){
+    return `<section class="card"><h2>משתמשים והרשאות</h2>
+      <p class="sub">רק מנהל סביבת העבודה יכול להזמין קולגות ולשנות הרשאות.
+         אתה רואה את כל הנתונים, אבל לא יכול לשנות אותם.</p></section>`;
+  }
+  if(!SEATS) return `<section class="card">${skeletonRows(3)}</section>`;
+
+  const members = SEATS.members.map(m => `<tr>
+    <td><bdi dir="ltr">${esc(m.email || "")}</bdi>${
+      (m.email || "") === ME.email ? ' <span class="badge mute">אתה</span>' : ""}</td>
+    <td>${m.role === "admin" ? '<span class="badge brand">מנהל</span>'
+                             : '<span class="badge mute">צפייה</span>'}</td>
+    <td>${new Date(m.created_at).toLocaleDateString("he-IL")}</td>
+  </tr>`).join("");
+
+  const pending = SEATS.invitations.length ? `
+    <h3 class="sub-head">הזמנות פתוחות</h3>
+    <p class="sub">מסור את הקוד לאדם שהזמנת. הוא יזין אותו בעת פתיחת החשבון,
+       והקוד עובד רק עם כתובת האימייל שאליה הונפק.</p>
+    <div class="table-wrap"><table><thead><tr>
+      <th>אימייל</th><th>הרשאה</th><th>קוד</th><th>בתוקף עד</th><th></th>
+    </tr></thead><tbody>${SEATS.invitations.map(i => `<tr>
+      <td><bdi dir="ltr">${esc(i.email)}</bdi></td>
+      <td>${i.role === "admin" ? "מנהל" : "צפייה"}</td>
+      <td><code class="code" data-copy="${esc(i.code)}" role="button" tabindex="0"
+                title="לחץ להעתקה"><bdi dir="ltr">${esc(i.code)}</bdi></code></td>
+      <td>${new Date(i.expires_at).toLocaleDateString("he-IL")}</td>
+      <td><button class="btn btn-danger btn-sm" data-revoke="${i.invitation_id}">ביטול</button></td>
+    </tr>`).join("")}</tbody></table></div>` : "";
+
+  return `<section class="card">
     <div class="card-head">
-      <div><h2>הלוגו של החברה</h2>
-      <p class="sub">מופיע בראש התפריט במקום הלוגו שלנו, לכל מי שנכנס לסביבת העבודה הזו.</p></div>
+      <div><h2>מי בסביבת העבודה</h2>
+      <p class="sub">כל מי שכאן רואה את אותם נתונים. רק מנהל יכול להעלות קבצים,
+         למחוק חודשים ולהזמין אנשים.</p></div>
     </div>
+    <div class="table-wrap"><table><thead><tr>
+      <th>אימייל</th><th>הרשאה</th><th>הצטרף</th>
+    </tr></thead><tbody>${members}</tbody></table></div>
+    ${pending}
+  </section>
+
+  <section class="card"><h2>הזמנת קולגה</h2>
+    <p class="sub">נפתח קוד הזמנה אישי. הקולגה פותח חשבון עם האימייל שלו ומזין
+       את הקוד — וכך מצטרף לסביבה הזו במקום ליצור אחת חדשה.</p>
+    <div style="display:grid;gap:14px;grid-template-columns:minmax(220px,1fr) 180px auto;
+                align-items:end">
+      <div><label for="inviteEmail">אימייל של הקולגה</label>
+        <input id="inviteEmail" type="email" autocomplete="off"></div>
+      <div><label for="inviteRole">הרשאה</label>
+        <select id="inviteRole">
+          <option value="viewer">צפייה בלבד</option>
+          <option value="admin">מנהל</option>
+        </select></div>
+      <button class="btn btn-primary" id="inviteBtn">צור הזמנה</button>
+    </div>
+  </section>`;
+}
+
+function profileBrand(){
+  const logo = ME.company && ME.company.logo_b64;
+  if(!ME.canManage){
+    return `<section class="card"><h2>מיתוג</h2>
+      <p class="sub">רק מנהל סביבת העבודה יכול לשנות את הלוגו.</p></section>`;
+  }
+  return `<section class="card">
+    <div class="card-head"><div><h2>הלוגו של החברה</h2>
+      <p class="sub">מופיע בראש התפריט במקום הלוגו שלנו, לכל מי שנכנס לסביבה הזו.</p></div></div>
     <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
       <div id="logoPreview" style="width:150px;height:64px;border:1px solid var(--line);
-           border-radius:var(--r-md);display:grid;place-items:center;background:var(--surface-2);
-           padding:8px;overflow:hidden">
+           border-radius:var(--r-md);display:grid;place-items:center;
+           background:var(--surface-2);padding:8px;overflow:hidden">
         ${logo ? `<img src="${esc(logo)}" alt="הלוגו הנוכחי"
                        style="max-width:100%;max-height:100%;object-fit:contain">`
                : `<span class="note" style="margin:0">אין לוגו</span>`}
@@ -1694,14 +2015,156 @@ PAGES.profile = () => {
     <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
     <p class="hint" style="margin-top:14px">PNG, JPG, WEBP או GIF, עד 300KB.
        קובצי SVG אינם נתמכים: SVG הוא מסמך שיכול להכיל קוד, וזו התמונה היחידה
-       במערכת שמישהו אחד מעלה ואחרים רואים בדפדפן שלהם.</p>
+       במערכת שאדם אחד מעלה ואחרים רואים בדפדפן שלהם.</p>
   </section>`;
+}
 
-  return head + details + logoCard + uploadHistoryCard() +
-    `<section class="card"><h2>יציאה</h2>
-       <p class="sub">ההתנתקות מוחקת את פרטי ההתחברות מהדפדפן הזה בלבד.</p>
-       <button class="btn btn-primary" id="logoutBtn2" style="max-width:220px">התנתקות</button></section>`;
-};
+/* The three below are not built. Each says what it will do and what it does
+   not do yet, because a screen that mimics a working feature costs more trust
+   than the missing feature does. */
+function comingSoon(title, description, items){
+  return `<section class="card">
+    <div class="card-head"><div><h2>${title}</h2><p class="sub">${description}</p></div>
+      <span class="badge mute">בפיתוח</span></div>
+    <ul style="margin:0;padding-inline-start:20px;color:var(--text-2);line-height:2.1">
+      ${items.map(i => `<li>${i}</li>`).join("")}
+    </ul>
+  </section>`;
+}
+
+const profileNotifications = () => comingSoon(
+  "התראות", "מתי המערכת תפנה אליך מיוזמתה, ובאיזה ערוץ.",
+  ["מייל כשעלייה או ירידה חריגה נמדדת בקמפיין",
+   "סיכום חודשי אוטומטי אחרי כל העלאה",
+   "התראה כשמדד חוצה סף שהגדרת",
+   "בחירה אילו התראות מגיעות למי מבין המשתמשים"]);
+
+const profileBilling = () => comingSoon(
+  "תשלומים ומנוי", "מסלול, אמצעי תשלום וחשבוניות.",
+  ["מסלול לפי מספר מושבים וכמות נתונים",
+   "כרטיס אשראי או הוראת קבע, וחשבונית חודשית להורדה",
+   "היסטוריית חיובים",
+   "כרגע החשבון פתוח ללא חיוב"]);
+
+const profileSupport = () => `<section class="card">
+    <h2>תמיכה ויצירת קשר</h2>
+    <p class="sub">אנחנו עונים לכל פנייה. אם משהו נראה שגוי בנתונים — זו הפנייה
+       הכי חשובה שאפשר לשלוח לנו.</p>
+    <div class="table-wrap"><table><tbody>
+      <tr><th style="width:190px">אימייל</th>
+          <td><a href="mailto:support@funneliq.app">support@funneliq.app</a></td></tr>
+      <tr><th>מה כדאי לצרף</th>
+          <td>הקובץ שהעלית, החודש שבו מדובר, ומה ציפית לראות</td></tr>
+      <tr><th>מספר שגיאה</th>
+          <td>אם ראית הודעת שגיאה עם מספר — צרף אותו, הוא מוביל אותנו ישר לאירוע</td></tr>
+    </tbody></table></div>
+  </section>
+  ${comingSoon("חיבורים", "משיכת נתונים אוטומטית במקום העלאה ידנית.",
+    ["חיבור ישיר ל־Google Ads",
+     "חיבור ישיר ל־Meta Ads",
+     "סנכרון יומי במקום קובץ חודשי",
+     "החיבורים יחליפו את ההעלאה הידנית, לא את מנועי הניתוח"])}
+  ${comingSoon("סביבות עבודה", "לחברה עם כמה מותגים או קווי מוצר.",
+    ["הפרדת קמפיינים לסביבות נפרדות תחת אותה חברה",
+     "מודלים ותובנות לכל סביבה בנפרד",
+     "הרשאה לכל סביבה בנפרד"])}`;
+
+const skeletonRows = (n) => Array.from({length: n},
+  () => '<div class="skeleton sk-line" style="width:100%"></div>').join("");
+
+/* ─────────────────────────────────────────────────────── wiring */
+function wireProfile(){
+  document.querySelectorAll("[data-ptab]").forEach(button => {
+    button.onclick = () => {
+      PROFILE_TAB = button.dataset.ptab;
+      document.querySelectorAll("[data-ptab]").forEach(b =>
+        b.setAttribute("aria-selected", String(b.dataset.ptab === PROFILE_TAB)));
+      $("profileBody").innerHTML = profileSection();
+      wireProfileSection();
+    };
+  });
+  wireProfileSection();
+}
+
+function wireProfileSection(){
+  if(PROFILE_TAB === "account"){
+    wireRename();
+    const out = $("logoutBtn2");
+    if(out) out.onclick = logout;
+  }
+  if(PROFILE_TAB === "brand") wireLogo();
+  if(PROFILE_TAB === "seats") wireSeats();
+}
+
+async function wireSeats(){
+  if(!ME.canManage) return;
+  if(!SEATS){
+    try{
+      SEATS = await api("/api/seats");
+    }catch(e){
+      if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
+      $("profileBody").innerHTML = `<div class="card"><p class="sub">${esc(e.message)}</p></div>`;
+      return;
+    }
+    $("profileBody").innerHTML = profileSection();
+  }
+
+  const invite = $("inviteBtn");
+  if(invite) invite.onclick = async () => {
+    invite.disabled = true; invite.textContent = "יוצר…";
+    try{
+      const s = loadSession();
+      const res = await fetch("/api/seats", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + s.token, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: $("inviteEmail").value.trim(),
+                               role: $("inviteRole").value }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok) throw new Error(data.detail || "ההזמנה נכשלה");
+      SEATS = null;
+      await wireSeats();
+      toast("pos", `נוצרה הזמנה עבור ${data.email}. מסור לו את הקוד.`);
+    }catch(e){
+      toast("neg", e.message);
+    }finally{
+      const button = $("inviteBtn");
+      if(button){ button.disabled = false; button.textContent = "צור הזמנה"; }
+    }
+  };
+
+  document.querySelectorAll("[data-revoke]").forEach(button => {
+    button.onclick = async () => {
+      const ok = await confirmDialog({
+        title: "לבטל את ההזמנה?",
+        body: "הקוד יפסיק לעבוד מיד. אפשר ליצור הזמנה חדשה בכל רגע.",
+        confirmText: "בטל הזמנה",
+      });
+      if(!ok) return;
+      const s = loadSession();
+      const res = await fetch("/api/seats/" + button.dataset.revoke,
+                              { method: "DELETE",
+                                headers: { "Authorization": "Bearer " + s.token } });
+      if(!res.ok) return toast("neg", "הביטול נכשל");
+      SEATS = null;
+      await wireSeats();
+      toast("pos", "ההזמנה בוטלה.");
+    };
+  });
+
+  document.querySelectorAll("[data-copy]").forEach(element => {
+    const copy = async () => {
+      try{
+        await navigator.clipboard.writeText(element.dataset.copy);
+        toast("pos", "הקוד הועתק.");
+      }catch{
+        toast("info", "העתק את הקוד ידנית: " + element.dataset.copy);
+      }
+    };
+    element.onclick = copy;
+    element.onkeydown = (e) => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); copy(); } };
+  });
+}
 
 /* --------------------------------------------------------------- routing */
 const ROUTE_ORDER = ["home","data","predict","funnel","budget","upload","profile"];
@@ -1727,7 +2190,7 @@ function render(){
   if(page === "data" && !INSIGHTS.empty) fillSample();
   if(page === "predict" && !INSIGHTS.empty){ wirePredict(); renderModelCard(); }
   if(page === "upload") wireUpload();
-  if(page === "profile"){ wireUploadDeletes(); wireRename(); wireLogo(); }
+  if(page === "profile") wireProfile();
   const lo2 = $("logoutBtn2");
   if(lo2) lo2.onclick = logout;
 }
@@ -1964,6 +2427,147 @@ async function showApp(){
   render();
 }
 
+/* ══════════════════════════════════════════════════ social sign-in
+   The buttons are drawn from what the server says is configured, never from a
+   hard-coded list. A Google button that leads to a provider nobody set up is
+   worse than no button at all: it fails after the person has already decided
+   to trust it. */
+
+const PROVIDER_LABEL = {
+  google: { name: "Google", mark: `<svg width="17" height="17" viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7C21.7 18.9 23 15.9 23 12.3z"/>
+    <path fill="#34A853" d="M12 23c3.1 0 5.7-1 7.6-2.8l-3.7-2.9c-1 .7-2.3 1.1-3.9 1.1-3 0-5.5-2-6.4-4.7H1.8v3C3.7 20.5 7.6 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.6 13.7a6.6 6.6 0 0 1 0-3.4v-3H1.8a11 11 0 0 0 0 9.4l3.8-3z"/>
+    <path fill="#EA4335" d="M12 5.4c1.7 0 3.2.6 4.4 1.7l3.2-3.2C17.7 2.1 15.1 1 12 1 7.6 1 3.7 3.5 1.8 7.3l3.8 3C6.5 7.5 9 5.4 12 5.4z"/></svg>` },
+  apple: { name: "Apple", mark: `<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M16.4 12.8c0-2.4 2-3.6 2.1-3.6-1.1-1.7-2.9-1.9-3.6-1.9-1.5-.2-3 .9-3.7.9-.8 0-2-.9-3.2-.8-1.7 0-3.2 1-4 2.5-1.7 2.9-.4 7.3 1.2 9.7.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.7 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.4-.9-2.4-3.9zM14 5.4c.7-.8 1.1-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>` },
+};
+
+async function paintProviders(){
+  let data;
+  try{
+    data = await (await fetch("/api/auth/providers")).json();
+  }catch{ return; }
+  const list = (data.providers || []).filter(p => PROVIDER_LABEL[p]);
+  if(!list.length) return;               // nothing configured, nothing shown
+
+  $("socialBlock").classList.remove("hidden");
+  $("socialButtons").innerHTML = list.map(key => {
+    const p = PROVIDER_LABEL[key];
+    return `<button type="button" class="btn btn-secondary" data-provider="${key}">
+      ${p.mark}<span>המשך עם ${p.name}</span></button>`;
+  }).join("");
+
+  $("socialButtons").querySelectorAll("[data-provider]").forEach(button => {
+    button.onclick = () => {
+      // Supabase handles the redirect dance; the browser comes back to our
+      // origin with a session in the URL fragment, which readFragment() picks
+      // up. Nothing about the provider is trusted on our side.
+      const back = encodeURIComponent(location.origin + location.pathname);
+      location.href = `${data.supabaseUrl}/auth/v1/authorize`
+        + `?provider=${button.dataset.provider}&redirect_to=${back}`;
+    };
+  });
+}
+
+/* A session, or a password-recovery token, arrives in the URL fragment — never
+   in the query string, so it stays out of server logs and referrers. */
+function readFragment(){
+  if(!location.hash.includes("access_token")) return null;
+  const params = new URLSearchParams(location.hash.slice(1));
+  const token = params.get("access_token");
+  const type = params.get("type");
+  // Clear it immediately: a recovery link left in the address bar is a
+  // password reset anyone with the screen can replay.
+  history.replaceState(null, "", location.pathname + location.search);
+  if(!token) return null;
+  return { token, type, expiresIn: +(params.get("expires_in") || 3600) };
+}
+
+/* ═════════════════════════════════════════════════ password recovery */
+function showForgot(){
+  $("loginForm").innerHTML = `
+    <div class="logo"><span class="mark" aria-hidden="true">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 4h18l-7 8v7l-4 2v-9z"/></svg></span><span>Funnel<em>IQ</em></span></div>
+    <p class="tagline">נשלח לך קישור לבחירת סיסמה חדשה</p>
+    <div class="field">
+      <label for="fgEmail">האימייל שאיתו נרשמת</label>
+      <input id="fgEmail" type="email" autocomplete="username" required>
+    </div>
+    <button type="button" class="btn btn-primary btn-block" id="fgSend">שלח קישור</button>
+    <p style="text-align:center;margin-top:var(--s-4)">
+      <button type="button" class="btn btn-ghost btn-sm" id="fgBack">חזרה לכניסה</button></p>
+    <div class="msg err" id="fgErr" role="alert"></div>
+    <div class="msg ok" id="fgOk" role="status"></div>`;
+  $("fgEmail").focus();
+  $("fgBack").onclick = () => location.reload();
+  $("fgSend").onclick = async () => {
+    const button = $("fgSend");
+    button.disabled = true; button.textContent = "שולח…";
+    try{
+      await post("/api/password/forgot", {
+        email: $("fgEmail").value.trim(),
+        redirectTo: location.origin + location.pathname,
+      });
+      // The same message either way. Telling the caller whether an address has
+      // an account turns this screen into a membership check.
+      $("fgOk").textContent = "אם קיים חשבון עם הכתובת הזו, שלחנו אליו קישור. "
+        + "בדוק גם בתיקיית הספאם — הקישור תקף לשעה.";
+      $("fgErr").textContent = "";
+    }catch(e){
+      $("fgErr").textContent = e.message;
+    }finally{
+      button.disabled = false; button.textContent = "שלח קישור";
+    }
+  };
+}
+
+function showReset(token){
+  $("loginView").classList.remove("hidden");
+  $("appView").classList.add("hidden");
+  $("loginForm").innerHTML = `
+    <div class="logo"><span class="mark" aria-hidden="true">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 4h18l-7 8v7l-4 2v-9z"/></svg></span><span>Funnel<em>IQ</em></span></div>
+    <p class="tagline">בחר סיסמה חדשה</p>
+    <div class="field">
+      <label for="rsPassword">סיסמה חדשה</label>
+      <div class="pw">
+        <input id="rsPassword" type="password" autocomplete="new-password" minlength="6" required>
+        <button type="button" id="rsToggle" aria-pressed="false" aria-label="הצג סיסמה">הצג</button>
+      </div>
+      <p class="hint">לפחות 6 תווים.</p>
+    </div>
+    <button type="button" class="btn btn-primary btn-block" id="rsSave">שמור והיכנס</button>
+    <div class="msg err" id="rsErr" role="alert"></div>`;
+  $("rsPassword").focus();
+  $("rsToggle").onclick = () => {
+    const input = $("rsPassword"), showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    $("rsToggle").textContent = showing ? "הצג" : "הסתר";
+    $("rsToggle").setAttribute("aria-pressed", String(!showing));
+  };
+  $("rsSave").onclick = async () => {
+    const button = $("rsSave");
+    button.disabled = true; button.textContent = "שומר…";
+    try{
+      await post("/api/password/reset",
+                 { accessToken: token, password: $("rsPassword").value });
+      // The recovery token is already a session, so the person is in — asking
+      // them to type the password they just chose would be theatre.
+      saveSession({ access_token: token, expires_in: 3600, user: {} });
+      await showApp();
+      toast("pos", "הסיסמה עודכנה.");
+    }catch(e){
+      $("rsErr").textContent = e.message;
+      button.disabled = false; button.textContent = "שמור והיכנס";
+    }
+  };
+}
+
 /* -------------------------------------------------- login form behaviour */
 function setMode(next){
   const up = next === "signup";
@@ -1979,12 +2583,33 @@ function setMode(next){
   // Signing up needs a real address, so the browser should validate it. Signing
   // in accepts a company name too, and type="email" would reject that before
   // the form was ever submitted.
+  $("socialBlock").classList.toggle("hidden", !$("socialButtons").children.length);
+  $("modeField").classList.toggle("hidden", !up);
+  $("forgotRow").classList.toggle("hidden", up);
+  applyJoinMode();
   $("email").type = up ? "email" : "text";
   $("emailLabel").textContent = up ? "אימייל" : "אימייל או שם חברה";
   $("emailHint").classList.toggle("hidden", up);
   say("err", ""); say("ok", "");
 }
 const mode = () => $("tabSignUp").getAttribute("aria-selected") === "true" ? "signup" : "signin";
+const joining = () =>
+  mode() === "signup"
+  && document.querySelector('input[name="joinMode"]:checked').value === "join";
+
+/* Someone joining a workspace has a code, not a company name. Asking them to
+   invent one would create a second workspace with a single member in it —
+   exactly what the invitation exists to prevent. */
+function applyJoinMode(){
+  const up = mode() === "signup";
+  const join = up && joining();
+  $("companyField").classList.toggle("hidden", !up || join);
+  $("company").required = up && !join;
+  $("inviteField").classList.toggle("hidden", !join);
+  $("inviteCode").required = join;
+  $("loginBtn").textContent = join ? "הצטרפות לסביבת העבודה"
+                                   : (up ? "פתיחת חשבון" : "כניסה");
+}
 
 function say(kind, text){
   $(kind === "ok" ? "loginOk" : "loginErr").textContent = text;
@@ -2003,6 +2628,12 @@ $("pwToggle").onclick = () => {
   input.focus();
 };
 
+document.querySelectorAll('input[name="joinMode"]').forEach(radio => {
+  radio.onchange = applyJoinMode;
+});
+$("forgotBtn").onclick = showForgot;
+paintProviders();
+
 $("tabSignIn").onclick = () => setMode("signin");
 $("tabSignUp").onclick = () => setMode("signup");
 $("logoutBtn").onclick = logout;
@@ -2016,7 +2647,11 @@ $("loginForm").addEventListener("submit", async (e) => {
   const email = $("email").value.trim();
   try{
     if(mode() === "signup"){
-      const data = await signUp(email, $("password").value, $("company").value.trim());
+      const data = await post("/api/signup", {
+        email, password: $("password").value,
+        company: joining() ? "" : $("company").value.trim(),
+        invitationCode: joining() ? $("inviteCode").value.trim() : "",
+      });
       if(data.access_token){
         saveSession(data);
         await showApp();
@@ -2040,8 +2675,20 @@ $("themeBtn").onclick = toggleTheme;
 initTheme();
 initNavDrawer();
 
-// A live session survives a refresh; anything else lands on the login screen.
-if(loadSession()) showApp(); else showLogin();
+// A social sign-in and a recovery link both come back with a token in the URL
+// fragment. Recovery lands on the new-password screen; anything else is a
+// completed sign-in.
+const arriving = readFragment();
+if(arriving && arriving.type === "recovery"){
+  showReset(arriving.token);
+}else if(arriving){
+  saveSession({ access_token: arriving.token, expires_in: arriving.expiresIn, user: {} });
+  showApp();
+}else if(loadSession()){
+  showApp();
+}else{
+  showLogin();
+}
 </script>
 </body>
 </html>
