@@ -347,7 +347,7 @@ def insights(token: str = Depends(get_current_user_token)):
     """
     rows = _fetch_all(
         get_user_client(token),
-        "id,ad_budget,budget_tier,num_leads,leads_answered,ltv_months,cumulative_profit,"
+        "id,upload_id,ad_budget,budget_tier,num_leads,leads_answered,ltv_months,cumulative_profit,"
         "customer_acquisition_cost,"
         "purchased,upsell,referred,closed,not_closed,calls_to_closed,calls_to_not_closed,"
         "followup_1,followup_2,followup_3,followup_4,followup_5",
@@ -374,6 +374,9 @@ def insights(token: str = Depends(get_current_user_token)):
             "leads": r["num_leads"], "answered": r["leads_answered"],
             "closed": r["closed"], "cac": r["customer_acquisition_cost"],
             "calls": r["calls_to_closed"],
+            # Which import this row arrived in, so the overview can be filtered
+            # to one month without a second request per period.
+            "uploadId": r.get("upload_id"),
         } for r in rows],
     }
 

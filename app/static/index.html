@@ -246,7 +246,7 @@ input:focus,select:focus,textarea:focus{
   outline:none;border-color:var(--brand);box-shadow:var(--ring);
 }
 input::placeholder{color:var(--text-3)}
-select{appearance:none;
+select{appearance:none;text-overflow:ellipsis;
   background-image:linear-gradient(45deg,transparent 50%,var(--text-3) 50%),
                    linear-gradient(135deg,var(--text-3) 50%,transparent 50%);
   background-position:calc(var(--s-4) - 4px) calc(50% + 1px), calc(var(--s-4) + 1px) calc(50% + 1px);
@@ -430,7 +430,9 @@ main{padding:var(--s-8) var(--s-10) var(--s-16);max-width:1180px;width:100%}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
       padding:var(--s-6);box-shadow:var(--sh-sm);position:relative}
 .card>h2{margin-bottom:var(--s-1)}
-.card>.sub{color:var(--text-2);font-size:var(--t-md);margin-bottom:var(--s-5);max-width:74ch}
+.card>.sub{color:var(--text-2);font-size:var(--t-md);margin-bottom:var(--s-5);max-width:78ch}
+.card>.table-wrap{margin-top:var(--s-5)}
+.card>.chart-funnel,.card>.chart-bars,.card>.chart-donut{margin-top:var(--s-5)}
 .card-head{display:flex;align-items:flex-start;justify-content:space-between;
            gap:var(--s-4);flex-wrap:wrap;margin-bottom:var(--s-5)}
 .card-head>div{min-width:0}
@@ -512,8 +514,8 @@ main{padding:var(--s-8) var(--s-10) var(--s-16);max-width:1180px;width:100%}
             font-size:var(--t-xs);color:var(--text-3)}
 
 .chart-donut{display:flex;align-items:center;gap:var(--s-6);flex-wrap:wrap}
-.chart-donut svg{width:150px;height:150px;flex:none}
-.donut-total{font-size:22px;font-weight:800;fill:var(--text)}
+.chart-donut svg{width:172px;height:172px;flex:none}
+.donut-total{font-size:19px;font-weight:800;fill:var(--text)}
 .donut-cap{font-size:11px;fill:var(--text-3)}
 .legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;
         gap:10px;font-size:var(--t-md)}
@@ -552,6 +554,65 @@ main{padding:var(--s-8) var(--s-10) var(--s-16);max-width:1180px;width:100%}
 .sorter.on{color:var(--brand-ink)}
 .pager{display:flex;align-items:center;justify-content:center;gap:var(--s-4);
        margin-top:var(--s-4);font-size:var(--t-sm);color:var(--text-2)}
+/* ══════════════════════════════════════════════ page structure
+   Sections are grouped under their own heading rather than running together,
+   which is what "everything collides" looked like: a card, a grid and a
+   callout stacked with no hierarchy between them. */
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;
+           gap:var(--s-5);flex-wrap:wrap;padding-bottom:var(--s-5);
+           border-bottom:1px solid var(--line)}
+.page-actions{display:flex;gap:var(--s-3);align-items:center;flex-wrap:wrap}
+.band{display:flex;flex-direction:column;gap:var(--s-4)}
+.band-title{font-size:var(--t-sm);font-weight:700;color:var(--text-3);
+            text-transform:uppercase;letter-spacing:.08em;margin:0}
+.period{display:flex;align-items:center;gap:10px;font-size:var(--t-sm);
+        font-weight:600;color:var(--text-2);white-space:nowrap}
+.period select{width:auto;min-width:150px}
+
+.compare{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;
+         gap:var(--s-4);margin:var(--s-5) 0;position:relative}
+.compare-side{display:flex;flex-direction:column;gap:6px;padding:var(--s-5);
+              border:1px solid var(--line);border-radius:var(--r-md);
+              background:var(--surface-2)}
+.compare-side.is-after{border-color:color-mix(in srgb,var(--c3) 45%,transparent);
+                       background:var(--tint-3)}
+.compare-cap{font-size:var(--t-sm);color:var(--text-2);font-weight:600}
+.compare-num{font-size:var(--t-2xl);font-weight:800;letter-spacing:-.03em;
+             font-variant-numeric:tabular-nums}
+.compare-sub{font-size:var(--t-sm);color:var(--text-3);
+             font-variant-numeric:tabular-nums}
+.compare-arrow{display:grid;place-items:center;color:var(--text-3)}
+.compare-delta{grid-column:1/-1;justify-self:center;padding:5px 16px;
+               border-radius:var(--r-full);background:var(--pos-50);
+               color:var(--pos-700);font-weight:700;font-size:var(--t-sm)}
+@media (max-width:640px){
+  .compare{grid-template-columns:1fr}
+  .compare-arrow{transform:rotate(90deg)}
+}
+
+.advice-head{display:flex;align-items:flex-start;justify-content:space-between;
+             gap:var(--s-4);flex-wrap:wrap;margin-bottom:var(--s-4)}
+.advice-title{display:flex;flex-direction:column;gap:8px;min-width:0}
+.advice-title h2{margin:0}
+.impact{padding:8px 16px;border-radius:var(--r-full);font-weight:700;
+        font-size:var(--t-md);white-space:nowrap;background:var(--surface-3)}
+.impact.t1{background:var(--tint-1)} .impact.t2{background:var(--tint-2)}
+.impact.t3{background:var(--tint-3)} .impact.t4{background:var(--tint-4)}
+.impact.t5{background:var(--tint-5)}
+.advice-body{font-size:var(--t-lg);line-height:1.75;color:var(--text);
+             max-width:74ch}
+.advice-chart{margin-top:var(--s-5)}
+.basis-toggle{margin-top:var(--s-5)}
+.basis{margin-top:var(--s-4);padding:var(--s-4) var(--s-5);
+       background:var(--surface-2);border:1px solid var(--line);
+       border-radius:var(--r-md);font-size:var(--t-md);line-height:1.8;
+       color:var(--text-2);max-width:80ch}
+
+.nav-group{font-size:var(--t-xs);font-weight:700;color:var(--text-3);
+           text-transform:uppercase;letter-spacing:.07em;
+           padding:var(--s-4) var(--s-3) var(--s-2);list-style:none}
+.nav-group:first-child{padding-top:0}
+
 .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-md);
             background:var(--surface)}
 table{border-collapse:separate;border-spacing:0;width:100%;font-size:var(--t-md);min-width:520px}
@@ -776,49 +837,7 @@ details[open]>summary::before{transform:rotate(-90deg)}
     </div>
 
     <nav aria-label="ניווט ראשי">
-      <p class="nav-label">סקירה</p>
-      <ul class="nav" id="nav">
-        <li><a href="#/home" data-page="home">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-               stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
-          דף הבית</a></li>
-        <li><a href="#/advice" data-page="advice">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-               stroke-linejoin="round"><path d="M9 21h6"/><path d="M10 18h4"/>
-               <path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.5 1 2.5h6c0-1 .4-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>
-          מה כדאי לעשות</a></li>
-        <li><a href="#/data" data-page="data">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-               stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
-          הנתונים שלי</a></li>
-        <li><a href="#/predict" data-page="predict">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-               stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>
-               <circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
-          תחזיות</a></li>
-        <li><a href="#/funnel" data-page="funnel">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-               stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
-          משפך המכירות</a></li>
-        <li><a href="#/budget" data-page="budget">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-               stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
-          תקציב</a></li>
-      </ul>
-
-      <p class="nav-label" style="margin-top:var(--s-5)">סביבת העבודה</p>
-      <ul class="nav">
-        <li><a href="#/upload" data-page="upload">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-               stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/>
-               <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-          העלאת נתונים</a></li>
-        <li><a href="#/profile" data-page="profile">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
-               stroke-linejoin="round"><circle cx="12" cy="8" r="4"/>
-               <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
-          פרופיל</a></li>
-      </ul>
+      <ul class="nav" id="nav"></ul>
     </nav>
 
     <div class="side-foot">
@@ -900,8 +919,12 @@ let REFRESHING = null;
 
 async function freshSession(){
   const live = loadSession();
-  if(live) return live;
+  return live || renewNow();
+}
 
+/* Renew regardless of what our own clock believes, for the case where the
+   server has already rejected a token we still trusted. */
+async function renewNow(){
   const stored = readSession();
   if(!stored || !stored.refresh) return null;
 
@@ -930,10 +953,13 @@ async function api(path){
   if(!s) throw new Error("__expired__");
   let res = await fetch(path, { headers:{ "Authorization":"Bearer " + s.token } });
   if(res.status === 401){
-    // The server disagrees with our clock. One more attempt with a token we
-    // know is new, and only then give up.
-    clearSession();
-    const renewed = await freshSession();
+    // The server disagrees with our clock: renew once and try again.
+    //
+    // This used to clear the session first, which threw away the refresh token
+    // it was about to need — so one stale response signed the person out for
+    // good instead of recovering. Clearing happens only after a renewal has
+    // actually failed.
+    const renewed = await renewNow();
     if(!renewed) throw new Error("__expired__");
     res = await fetch(path, { headers:{ "Authorization":"Bearer " + renewed.token } });
   }
@@ -1130,99 +1156,63 @@ function initNavDrawer(){
   });
 }
 
-/* ═══════════════════════════════════════════ what every number means
-   One place that names each figure and explains it in a sentence, so the same
-   words appear wherever it does. The person reading this runs a marketing
-   department, not a statistics one: nothing here says "model", "baseline" or
-   "error", because those describe how we work rather than what they got.
+/* ═══════════════════════════════════════════ what every metric means
+   Written in the vocabulary of the department that reads it. "לידים", not
+   "אנשים"; ROAS, CPL and CAC by name, with the definition beside them rather
+   than instead of them — a media buyer knows the term and a finance lead may
+   not, and both open the same dashboard.
 
-   `explain` is the sentence shown under a heading or inside a tooltip. It has
-   to survive being read once, quickly, by someone who has not asked what LTV
-   stands for and should not have to. */
+   The reader is an organisation, not one person: several people from the same
+   company look at this, each with a different job, so nothing addresses "you"
+   personally or assumes who is looking. */
 
 const GLOSSARY = {
-  campaigns: {
-    label: "קמפיינים",
-    explain: "כמה קמפיינים העלית למערכת.",
-  },
-  leads: {
-    label: "פניות שהתקבלו",
-    explain: "כמה אנשים השאירו פרטים בעקבות הקמפיינים.",
-  },
-  answered: {
-    label: "ענו לטלפון",
-    explain: "מתוך מי שהשאיר פרטים — כמה באמת הרימו כשהתקשרתם.",
-  },
-  closed: {
-    label: "עסקאות שנסגרו",
-    explain: "כמה מתוך הפניות הפכו ללקוחות משלמים.",
-  },
-  spend: {
-    label: "כמה הוצאת",
-    explain: "סך הכסף ששמת על כל הקמפיינים יחד.",
-  },
-  profit: {
-    label: "כמה הרווחת",
-    explain: "הכסף שנשאר אחרי שמורידים את מה שהוצאת על הפרסום.",
-  },
-  cost_per_lead: {
-    label: "כמה עולה פנייה אחת",
-    explain: "מחלקים את מה שהוצאת במספר האנשים שהשאירו פרטים. ככל שנמוך יותר — טוב יותר.",
-  },
-  cost_per_close: {
-    label: "כמה עולה לקוח אחד",
-    explain: "כמה כסף פרסום נדרש בממוצע כדי לסגור עסקה אחת.",
-  },
-  answer_rate: {
-    label: "אחוז שעונים",
-    explain: "מתוך כל מי שהשאיר פרטים, כמה מהם באמת עונים לטלפון.",
-  },
-  close_rate: {
-    label: "אחוז שנסגרים",
-    explain: "מתוך מי שדיברתם איתו, כמה הפכו ללקוחות.",
-  },
-  ltv_months: {
-    label: "כמה זמן לקוח נשאר",
-    unit: "חודשים",
-    // The question the field name never answered. Asked twice, in those words.
-    explain: "כמה חודשים בממוצע לקוח ממשיך לשלם לפני שהוא עוזב. "
-           + "לקוח שנשאר 8 חודשים שווה פי שניים מלקוח שנשאר 4 — "
-           + "גם אם שניהם עלו אותו דבר להביא.",
-  },
-  return_per_shekel: {
-    label: "כמה מחזיר כל שקל",
-    explain: "על כל שקל שהשקעת בפרסום — כמה שקלים חזרו. "
-           + "מעל 1 זה רווח, מתחת ל־1 זה הפסד.",
-  },
-  upsell_rate: {
-    label: "אחוז שקונים שוב",
-    explain: "כמה מהלקוחות קנו משהו נוסף אחרי הקנייה הראשונה.",
-  },
-  referral_rate: {
-    label: "אחוז שממליצים",
-    explain: "כמה מהלקוחות הביאו לקוחות נוספים.",
-  },
-  purchase_rate: {
-    label: "אחוז שקונים",
-    explain: "מתוך כל הקמפיינים, בכמה מהם הייתה בסוף קנייה.",
-  },
+  campaigns: { label: "קמפיינים",
+    explain: "מספר הקמפיינים שיובאו למערכת בתקופה הנבחרת." },
+  leads: { label: "לידים",
+    explain: "פניות שהתקבלו מהקמפיינים — אנשים שהשאירו פרטים." },
+  answered: { label: "לידים שנענו",
+    explain: "לידים שהצוות הצליח ליצור איתם קשר טלפוני בפועל." },
+  closed: { label: "המרות",
+    explain: "לידים שהפכו ללקוחות משלמים." },
+  spend: { label: "הוצאת מדיה",
+    explain: "סך התקציב שהושקע בכלל הקמפיינים בתקופה." },
+  revenue: { label: "הכנסה",
+    explain: "סך ההכנסות שנוצרו מהלידים שהומרו." },
+  profit: { label: "רווח נקי",
+    explain: "ההכנסה בניכוי הוצאת המדיה." },
+  roas: { label: "ROAS",
+    explain: "החזר על הוצאות פרסום — כמה שקלים חזרו על כל שקל מדיה. "
+           + "מעל 1.0 הפעילות רווחית, מתחת לכך היא מסובסדת." },
+  cost_per_lead: { label: "CPL",
+    explain: "עלות לליד — הוצאת המדיה חלקי מספר הלידים. יעד נמוך יותר עדיף." },
+  cost_per_close: { label: "CAC",
+    explain: "עלות רכישת לקוח — הוצאת המדיה חלקי מספר ההמרות." },
+  answer_rate: { label: "שיעור מענה",
+    explain: "אחוז הלידים שנוצר איתם קשר מתוך כלל הלידים שהתקבלו." },
+  close_rate: { label: "שיעור המרה",
+    explain: "אחוז הלידים שהפכו ללקוחות מתוך אלה שנוצר איתם קשר." },
+  ltv_months: { label: "LTV", unit: "חודשים",
+    explain: "שווי חיי לקוח — מספר החודשים שלקוח ממוצע ממשיך לשלם לפני נטישה. "
+           + "לקוח שנשאר 8 חודשים שווה כפליים מלקוח שנשאר 4, גם כשה־CAC זהה." },
+  upsell_rate: { label: "שיעור מכירה נוספת",
+    explain: "אחוז הלקוחות שביצעו רכישה נוספת מעבר לרכישה הראשונה." },
+  referral_rate: { label: "שיעור הפניות",
+    explain: "אחוז הלקוחות שהביאו לקוחות נוספים בהמלצה." },
+  purchase_rate: { label: "שיעור רכישה",
+    explain: "אחוז הקמפיינים שהניבו לפחות רכישה אחת." },
+  wasted_calls: { label: "שיחות ללא המרה",
+    explain: "אחוז מזמן החייגנות שמופנה ללידים שלא הומרו בסופו של דבר." },
 };
 
 const term = (key) => GLOSSARY[key] || { label: key, explain: "" };
 
-/* A heading with the plain explanation under it, always together. Splitting
-   them is how a dashboard ends up with fourteen numbers nobody can name. */
-function titled(key, extra){
-  const t = term(key);
-  return `<h2>${esc(t.label)}</h2>
-    <p class="sub">${esc(t.explain)}${extra ? " " + esc(extra) : ""}</p>`;
-}
-
-/* A small "?" that carries the same sentence, for places with no room for it. */
+/* A "?" that carries the definition, for places with no room for a sentence.
+   The term stays visible; the explanation is one click away. */
 function hint(key){
   const t = term(key);
   if(!t.explain) return "";
-  return `<button type="button" class="why" aria-label="מה זה ${esc(t.label)}"
+  return `<button type="button" class="why" aria-label="הגדרה: ${esc(t.label)}"
             data-why="${esc(t.explain)}">?</button>`;
 }
 
@@ -1230,15 +1220,41 @@ function wireHints(){
   document.querySelectorAll("[data-why]").forEach(button => {
     button.onclick = (e) => {
       e.stopPropagation();
+      const open = button.nextElementSibling;
       document.querySelectorAll(".why-pop").forEach(p => p.remove());
+      if(open && open.classList.contains("why-pop")) return;
       const pop = document.createElement("span");
       pop.className = "why-pop";
       pop.textContent = button.dataset.why;
-      button.parentElement.appendChild(pop);
+      button.insertAdjacentElement("afterend", pop);
       setTimeout(() => document.addEventListener("click",
         () => pop.remove(), { once: true }), 0);
     };
   });
+
+  /* "On what is this based" — the working shown on request rather than either
+     hidden or forced on everyone. */
+  document.querySelectorAll("[data-basis]").forEach(button => {
+    button.onclick = () => {
+      const panel = document.getElementById(button.dataset.basis);
+      if(!panel) return;
+      const open = !panel.hidden;
+      panel.hidden = open;
+      button.setAttribute("aria-expanded", String(!open));
+      button.textContent = open ? "על מה זה מבוסס?" : "סגירה";
+    };
+  });
+}
+
+/* One tile: the metric's own term, its number, and the definition behind a
+   click. Three separate lines of prose under every figure is how a dashboard
+   becomes an essay. */
+function tile(tint, key, value, override){
+  const t = term(key);
+  return `<div class="tile ${tint}">
+    <div class="k">${esc(override || t.label)}${hint(key)}</div>
+    <div class="v">${value}</div>
+  </div>`;
 }
 
 /* ═══════════════════════════════════════════════════════════ charts
@@ -1302,10 +1318,10 @@ function donut(parts){
   const total = parts.reduce((sum, p) => sum + p.value, 0);
   if(!total) return "";
   let offset = 0;
-  const R = 54, C = 2 * Math.PI * R;
+  const R = 58, C = 2 * Math.PI * R;
   const arcs = parts.map((p, i) => {
     const share = p.value / total;
-    const arc = `<circle cx="70" cy="70" r="${R}" fill="none" stroke-width="22"
+    const arc = `<circle cx="70" cy="70" r="${R}" fill="none" stroke-width="15"
       stroke="${p.colour || PALETTE[i % PALETTE.length]}"
       stroke-dasharray="${(share * C).toFixed(2)} ${C.toFixed(2)}"
       stroke-dashoffset="${(-offset * C).toFixed(2)}"
@@ -1316,10 +1332,12 @@ function donut(parts){
   return `<div class="chart-donut">
     <svg viewBox="0 0 140 140" role="img"
          aria-label="${esc(parts.map(p => `${p.label}: ${nf.format(p.value)}`).join(", "))}">
-      <circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="22"/>
+      <circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="15"/>
       ${arcs}
-      <text x="70" y="66" text-anchor="middle" class="donut-total">${nf.format(total)}</text>
-      <text x="70" y="84" text-anchor="middle" class="donut-cap">סה״כ</text>
+      <text x="70" y="68" text-anchor="middle" class="donut-total"
+            textLength="${Math.min(76, 11 * nf.format(total).length)}"
+            lengthAdjust="spacingAndGlyphs">${nf.format(total)}</text>
+      <text x="70" y="86" text-anchor="middle" class="donut-cap">סה״כ</text>
     </svg>
     <ul class="legend">${parts.map((p, i) => `<li>
       <i style="background:${p.colour || PALETTE[i % PALETTE.length]}"></i>
@@ -1370,10 +1388,10 @@ const emptyState = (what) => `
         <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
         <path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/></svg>
     </div>
-    <h2>אין עדיין נתונים ${what ? "ל" + what : ""}</h2>
-    <p>סביבת העבודה של החברה שלך ריקה. ברגע שתעלה קובץ קמפיינים ראשון,
-       המערכת תנתח אותו ותמלא את כל העמודים האלה.</p>
-    <p style="margin-top:20px"><a class="btn btn-primary" href="#/upload">להעלאת הקובץ הראשון ←</a></p>
+    <h2>טרם יובאו נתונים${what ? " ל" + what : ""}</h2>
+    <p>חשבון הארגון ריק. לאחר ייבוא קובץ הביצועים הראשון, המערכת תחשב את
+       מדדי הליבה, תבנה את משפך ההמרה ותפיק המלצות אופטימיזציה.</p>
+    <p style="margin-top:20px"><a class="btn btn-primary" href="#/upload">לייבוא הקובץ הראשון ←</a></p>
   </div>`;
 
 /* --------------------------------------------------------------- widgets */
@@ -1392,151 +1410,165 @@ function barRows(items){
 /* ----------------------------------------------------------------- pages */
 const PAGES = {};
 
-PAGES.home = () => {
-  const name = ME && ME.company ? esc(ME.company.name) : "החברה שלך";
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">שלום, ${name}</h1>
-    <p>הנה מה שקרה עם הקמפיינים שלך, בשורה אחת לכל דבר.</p></div>`;
-  if(INSIGHTS.empty) return head + emptyState("");
+/* Which imported month the figures describe. All of them, unless one is
+   chosen — a request that the overview be filterable by month, and the reason
+   the uploads list is fetched with the rest of the session. */
+let PERIOD = "";
 
-  const s = INSIGHTS.summary, b = INSIGHTS.budget, f = INSIGHTS.followup;
-  const leads = f.funnel[0].count, closed = f.funnel[f.funnel.length - 1].count;
-
-  const tiles = `<div class="grid">
-    ${tile("t1", term("spend").label, money(b.pot), term("spend").explain)}
-    ${tile("t2", term("leads").label, num(leads), term("leads").explain)}
-    ${tile("t3", term("closed").label, num(closed), term("closed").explain)}
-    ${tile("t4", term("profit").label, money(s.avgProfit == null ? null : s.avgProfit * s.total),
-           "כמה נשאר בכיס אחרי כל ההוצאה על פרסום.")}
-  </div>`;
-
-  const perShekel = b.pot ? (s.avgProfit || 0) * s.total / b.pot : null;
-  const headline = perShekel == null ? "" : `<section class="card">
-    <h2>השורה התחתונה</h2>
-    <div class="callout ${perShekel >= 1 ? "pos" : "neg"}">
-      על כל שקל שהשקעת בפרסום חזרו לך <strong>${money(perShekel)}</strong>.
-      ${perShekel >= 1
-        ? "כלומר הפרסום מחזיר את עצמו ועוד."
-        : "כלומר כרגע אתה מוציא יותר ממה שחוזר."}
-    </div>
-    <div class="chart-donut">${donut([
-      { label: "נשאר בכיס", value: Math.max(0, Math.round((s.avgProfit || 0) * s.total)),
-        colour: "var(--c3)" },
-      { label: "הלך על פרסום", value: b.pot, colour: "var(--c4)" },
-    ])}</div>
-  </section>`;
-
-  const cards = [];
-  if(b.best){
-    cards.push(`<section class="card">
-      <h2>ההזדמנות הכי גדולה שלך</h2>
-      <p class="sub">אותו כסף בדיוק, מחולק אחרת בין הקמפיינים.</p>
-      <div class="callout brand">אם היית מפצל את ${money(b.pot)} לקמפיינים של
-        <strong>${money(b.best.budgetEach)}</strong> כל אחד, היית מרוויח בערך
-        <strong>${pct(b.gainPct)} יותר</strong> — בלי להוציא שקל נוסף.</div>
-      <a class="btn btn-primary" href="#/budget">להסבר המלא</a></section>`);
-  }
-  if(f.unansweredPct != null){
-    cards.push(`<section class="card">
-      <h2>איפה אתה מאבד הכי הרבה אנשים</h2>
-      <p class="sub">${term("answered").explain}</p>
-      <div class="callout warn"><strong>${pct(f.unansweredPct)} מהאנשים שהשאירו
-        פרטים לא ענו לטלפון בכלל</strong> — ${num(f.unanswered)} אנשים.
-        זה השלב שמאבד הכי הרבה, לפני כל שיחת מעקב.</div>
-      <a class="btn btn-primary" href="#/funnel">לראות את כל המסע</a></section>`);
-  }
-  return head + tiles + headline + cards.join("");
-};
-
-/* One tile: a number, its name, and the sentence that says what it is. The
-   three travel together — a dashboard where you have to already know what a
-   figure means is a dashboard for the person who built it. */
-function tile(tint, label, value, explain){
-  return `<div class="tile ${tint}">
-    <div class="k">${esc(label)}</div>
-    <div class="v">${value}</div>
-    ${explain ? `<div class="n">${esc(explain)}</div>` : ""}
-  </div>`;
+function periodFilter(){
+  const uploads = (ME.uploads || []).filter(u => u.status !== "failed");
+  if(uploads.length < 2) return "";
+  return `<label class="period">
+    <span>תקופה</span>
+    <select id="periodSel">
+      <option value="">כל התקופות</option>
+      ${uploads.map(u => `<option value="${u.id}"${PERIOD === u.id ? " selected" : ""}
+        >${monthName(u.period)}</option>`).join("")}
+    </select></label>`;
 }
 
-PAGES.data = () => {
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">הנתונים שלי</h1>
-    <p>כל הקמפיינים שהעלית. אפשר לסנן, למיין, ולחפש כל קמפיין.</p></div>`;
-  if(INSIGHTS.empty) return head + emptyState("הצגה");
+const HE_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני",
+                   "יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+function monthName(iso){
+  const [y, m] = String(iso).split("-");
+  return `${HE_MONTHS[+m - 1]} ${y}`;
+}
 
-  const s = INSIGHTS.summary;
-  const tiles = `<div class="grid">
-    ${tile("t1", term("campaigns").label, num(s.total), term("campaigns").explain)}
-    ${tile("t2", term("close_rate").label, pct(s.purchaseRate), term("purchase_rate").explain)}
-    ${tile("t3", term("upsell_rate").label, pct(s.upsellRate), term("upsell_rate").explain)}
-    ${tile("t4", term("ltv_months").label,
-           s.avgLtvMonths == null ? na() : num(s.avgLtvMonths) + " חודשים",
-           term("ltv_months").explain)}
-  </div>`;
+/* The overview recomputes from the campaign rows rather than the server's
+   totals, because those cover every period and this view may cover one. The
+   definitions are the same ones the rest of the product uses. */
+function periodTotals(){
+  const rows = PERIOD
+    ? INSIGHTS.records.filter(r => r.uploadId === PERIOD)
+    : INSIGHTS.records;
+  const spend = rows.reduce((a, r) => a + (r.budget || 0), 0);
+  const leads = rows.reduce((a, r) => a + (r.leads || 0), 0);
+  const answered = rows.reduce((a, r) => a + (r.answered || 0), 0);
+  const closed = rows.reduce((a, r) => a + (r.closed || 0), 0);
+  const share = INSIGHTS.records.length ? rows.length / INSIGHTS.records.length : 1;
+  const profit = (INSIGHTS.summary.avgProfit || 0) * INSIGHTS.summary.total * share;
+  return {
+    rows: rows.length, spend, leads, answered, closed, profit,
+    revenue: profit + spend,
+    roas: spend ? (profit + spend) / spend : null,
+    cpl: leads ? spend / leads : null,
+    cac: closed ? spend / closed : null,
+    answerRate: leads ? 100 * answered / leads : null,
+    closeRate: answered ? 100 * closed / answered : null,
+  };
+}
+
+PAGES.home = () => {
+  const head = pageHead("home", periodFilter());
+  if(INSIGHTS.empty) return head + emptyState("");
+  const t = periodTotals();
+
+  const kpis = `<section class="band">
+    <h2 class="band-title">מדדי ליבה</h2>
+    <div class="grid">
+      ${tile("t1", "spend", money(t.spend))}
+      ${tile("t3", "revenue", money(t.revenue))}
+      ${tile("t2", "roas", t.roas == null ? na() : money(t.roas))}
+      ${tile("t4", "profit", money(t.profit))}
+    </div>
+  </section>`;
+
+  const funnel = `<section class="band">
+    <h2 class="band-title">יעילות רכישה</h2>
+    <div class="grid">
+      ${tile("t2", "leads", num(t.leads))}
+      ${tile("t1", "cost_per_lead", money(t.cpl))}
+      ${tile("t3", "closed", num(t.closed))}
+      ${tile("t5", "cost_per_close", money(t.cac))}
+    </div>
+  </section>`;
 
   const split = `<section class="card">
-    <h2>איך הקמפיינים שלך מתחלקים</h2>
-    <p class="sub">לפי גודל התקציב: קטן עד ₪1,500, בינוני עד ₪5,000, גדול מעל זה.</p>
-    ${donut(s.tiers.map((t, i) => ({
-      label: { Low: "תקציב קטן", Mid: "תקציב בינוני", High: "תקציב גדול" }[t.tier] || t.tier,
-      value: t.count, colour: PALETTE[i],
-    })))}</section>`;
+    <h2>הרכב ההוצאה מול ההחזר</h2>
+    <p class="sub">חלוקת ההכנסה בין מה שכוסה על ידי הוצאת המדיה לבין הרווח שנותר.</p>
+    ${donut([
+      { label: "רווח נקי", value: Math.max(0, Math.round(t.profit)), colour: "var(--c3)" },
+      { label: "הוצאת מדיה", value: Math.round(t.spend), colour: "var(--c4)" },
+    ])}
+    <div class="callout ${t.roas >= 1 ? "pos" : "warn"}">
+      ROAS של <strong>${t.roas == null ? na() : money(t.roas)}</strong> על כל שקל מדיה.
+      ${t.roas >= 1 ? "הפעילות רווחית ברמת החשבון."
+                    : "הפעילות מסובסדת ברמת החשבון — ההוצאה גבוהה מההחזר."}
+    </div>
+  </section>`;
 
-  return head + tiles + split + campaignTableCard();
+  const trend = trendCard();
+  return head + kpis + funnel + `<div class="grid-2">${split}${trend}</div>`;
 };
 
-const TARGET_LABEL = {
-  ltv_months: "כמה זמן הלקוח יישאר",
-  cumulative_profit: "כמה הקמפיין ירוויח",
-  upsell: "הסיכוי שיקנה שוב",
-  referred: "הסיכוי שימליץ עליך",
-};
-
-/* ═══════════════════════════════════════════════════ what to actually do
-   Every other page describes what happened. This one says what to change, in
-   the order worth changing it, and shows the number behind each suggestion so
-   nobody has to take it on faith.
-
-   Nothing here is invented in the browser. Each item reads a figure the server
-   already computed and states the action it implies — which is why an item
-   disappears when its figure does, instead of turning into a generic tip. */
+/* Month over month, once there is more than one month to compare. */
+function trendCard(){
+  const uploads = (ME.uploads || []).filter(u => u.status !== "failed")
+    .slice().sort((a, b) => a.period.localeCompare(b.period));
+  if(uploads.length < 2){
+    return `<section class="card">
+      <h2>מגמה חודשית</h2>
+      <p class="sub">לאחר ייבוא של חודש נוסף תוצג כאן ההשוואה בין התקופות —
+         נפח לידים, CPL ו־ROAS לאורך זמן.</p></section>`;
+  }
+  const points = uploads.map(u => {
+    const rows = INSIGHTS.records.filter(r => r.uploadId === u.id);
+    const leads = rows.reduce((a, r) => a + (r.leads || 0), 0);
+    return { label: monthName(u.period), value: leads };
+  });
+  return `<section class="card">
+    <h2>נפח לידים לפי תקופה${hint("leads")}</h2>
+    <p class="sub">מספר הלידים שהתקבלו בכל חודש שיובא.</p>
+    ${lineChart(points)}
+  </section>`;
+}
 
 PAGES.advice = () => {
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">מה כדאי לעשות</h1>
-    <p>ההמלצות מסודרות מהמשמעותית ביותר. לכל אחת יש את המספר שממנו היא נובעת.</p></div>`;
+  const head = pageHead("advice", periodFilter());
   if(INSIGHTS.empty) return head + emptyState("המלצות");
 
   const b = INSIGHTS.budget, f = INSIGHTS.followup, s = INSIGHTS.summary;
   const items = [];
 
   if(b.best && b.gainPct > 5){
-    const worst = b.strategies[b.strategies.length - 1];
     items.push({
-      tint: "t1", tag: "תקציב", impact: `+${pct(b.gainPct)} רווח`,
-      title: `פצל את התקציב לקמפיינים של ${money(b.best.budgetEach)}`,
-      body: `היום הכסף מפוזר על גדלים שונים. הקמפיינים בגודל
-        ${money(b.best.budgetEach)} מחזירים ${mult(b.best.returnPerShekel)} על כל שקל —
-        הכי הרבה מכל הגדלים שניסית.`,
-      proof: worst ? `לשם השוואה, קמפיינים בגודל ${money(worst.budgetEach)}
-        מחזירים רק ${mult(worst.returnPerShekel)} על השקל.` : "",
+      tint: "t1", tag: "הקצאת תקציב", impact: `+${pct(b.gainPct)} רווח`,
+      title: `הקצאה מחדש לרמת תקציב של ${money(b.best.budgetEach)} לקמפיין`,
+      body: `ההוצאה מפוזרת כיום על פני רמות תקציב שונות. רמת ${money(b.best.budgetEach)}
+        מניבה ROAS של ${money(b.best.returnPerShekel)} — הגבוה מבין הרמות הפעילות בחשבון.`,
+      // Before against after, because a percentage on its own does not say
+      // what it is a percentage of.
+      compare: comparison(
+        { label: "התמהיל הנוכחי", profit: b.current.expectedProfit,
+          roas: b.current.returnPerShekel },
+        { label: "לאחר ההקצאה", profit: b.best.expectedProfit,
+          roas: b.best.returnPerShekel },
+        b.gainPct),
+      basis: `ההשוואה מבוססת על ${num(s.total)} הקמפיינים שיובאו לחשבון.
+        עבור כל רמת תקציב חושב הרווח הממוצע בפועל, והוא הוכפל במספר הקמפיינים
+        שאותה הוצאת מדיה (${money(b.pot)}) הייתה מממנת באותה רמה. "התמהיל הנוכחי"
+        הוא ממוצע משוקלל של הרמות לפי חלקן בהוצאה בפועל.`,
       chart: barChart(b.curve.slice(0, 8).map(c => ({
         label: money(c.budget), value: Math.max(0, c.returnPerShekel),
         note: `${nf.format(c.campaigns)} קמפיינים`,
         colour: c.returnPerShekel >= 1 ? "var(--c3)" : "var(--c4)",
-      })), { formatter: (v) => v.toFixed(2) + "₪" }),
+      })), { formatter: (v) => "₪" + v.toFixed(2) }),
     });
   }
 
   if(f.unansweredPct != null && f.unansweredPct > 20){
     items.push({
-      tint: "t2", tag: "פניות", impact: `${num(f.unanswered)} אנשים`,
-      title: "תתקשר מהר יותר, ותנסה יותר מפעם אחת",
-      body: `${pct(f.unansweredPct)} מהאנשים שהשאירו פרטים לא ענו לטלפון אף פעם.
-        זה השלב שמאבד הכי הרבה אנשים — יותר מכל שיחות המעקב יחד.`,
-      proof: `כל אחוז שתשפר כאן שווה בערך
-        ${num(Math.round(f.funnel[0].count / 100))} אנשים נוספים שתדבר איתם.`,
+      tint: "t2", tag: "שיעור מענה", impact: `${num(f.unanswered)} לידים`,
+      title: "קיצור זמן התגובה והגדלת מספר ניסיונות המגע",
+      body: `${pct(f.unansweredPct)} מהלידים אינם נענים כלל — ${num(f.unanswered)}
+        לידים ששולמה עליהם עלות רכישה מלאה ולא נוצר איתם מגע. זהו שלב הנשירה
+        הגדול במשפך, לפני כל פעילות מעקב.`,
+      basis: `שיעור המענה מחושב כיחס בין לידים שנוצר איתם קשר לבין סך הלידים,
+        מצטבר על פני ${num(f.campaigns)} קמפיינים. שיפור של נקודת אחוז אחת שווה
+        כ־${num(Math.round(f.funnel[0].count / 100))} לידים נוספים במגע.`,
       chart: funnelChart(f.funnel.slice(0, 3).map(stage => ({
-        label: { Leads: "השאירו פרטים", Answered: "ענו לטלפון",
-                 "Follow-up 1": "שיחת מעקב ראשונה" }[stage.stage] || stage.stage,
+        label: { Leads: "לידים שהתקבלו", Answered: "לידים שנענו",
+                 "Follow-up 1": "מגע שני" }[stage.stage] || stage.stage,
         value: stage.count,
       }))),
     });
@@ -1544,107 +1576,95 @@ PAGES.advice = () => {
 
   if(f.gapRaw){
     items.push({
-      tint: "t3", tag: "מעקב", impact: `פי ${mult(f.gapRaw)}`,
-      title: "עסקה שנסגרת מהר שווה הרבה יותר",
-      body: `קמפיינים שסוגרים תוך שתי שיחות מרוויחים פי ${mult(f.gapRaw)}
-        מקמפיינים שצריכים חמש שיחות ומעלה.`,
-      proof: `בדקנו אם זה פשוט כי הפניות שם היו טובות יותר — וזה לא.
-        גם כשמשווים בין קמפיינים עם פניות באיכות דומה, הפער נשאר
-        פי ${mult(f.gapWithinQuality)}.`,
+      tint: "t3", tag: "ניהול מגעים", impact: `פי ${mult(f.gapRaw)} רווחיות`,
+      title: "תיעדוף לידים בעלי סבירות המרה מהירה",
+      body: `קמפיינים שנסגרים עד שני מגעים רווחיים פי ${mult(f.gapRaw)} מקמפיינים
+        שדורשים חמישה מגעים ומעלה.`,
+      basis: `הפער נבדק בבקרה על איכות הלידים: הקמפיינים חולקו לרבעונים לפי שיעור
+        מענה — מדד שנקבע לפני כל החלטת מגע — וההשוואה נערכה בתוך כל רבעון בנפרד.
+        גם כך הפער נותר פי ${mult(f.gapWithinQuality)}, כלומר איכות הלידים מסבירה
+        רק ${pct(f.explainedByQualityPct)} ממנו.`,
       chart: barChart((f.byCalls || []).slice(0, 6).map(c => ({
-        label: `${c.calls} שיחות`, value: Math.max(0, c.avgProfit),
+        label: `${c.calls} מגעים`, value: Math.max(0, c.avgProfit),
         note: `${nf.format(c.campaigns)} קמפיינים`,
       })), { formatter: (v) => "₪" + nf.format(Math.round(v)) }),
     });
   }
 
-  if(f.wastedCallShare != null && f.wastedCallShare > 30){
-    items.push({
-      tint: "t4", tag: "זמן צוות", impact: pct(f.wastedCallShare),
-      title: "החלט מראש מתי מפסיקים לרדוף אחרי פנייה",
-      body: `${pct(f.wastedCallShare)} מכל השיחות שהצוות שלך מבצע מגיעות לאנשים
-        שבסוף לא קונים. זה זמן שאפשר להפנות לפניות חדשות.`,
-      proof: "",
-    });
-  }
-
   if(s.upsellRate != null && s.upsellRate < 25){
     items.push({
-      tint: "t5", tag: "לקוחות קיימים", impact: pct(s.upsellRate),
-      title: "יש לך לקוחות שכבר קנו ולא חוזרים",
-      body: `רק ${pct(s.upsellRate)} מהלקוחות שלך קונים משהו נוסף.
-        למכור שוב ללקוח קיים עולה הרבה פחות מלהביא לקוח חדש.`,
-      proof: s.avgLtvMonths == null ? "" :
-        `לקוח נשאר אצלך בממוצע ${num(s.avgLtvMonths)} חודשים — זה חלון הזמן
-         שיש לך כדי להציע לו משהו נוסף.`,
+      tint: "t5", tag: "בסיס לקוחות", impact: pct(s.upsellRate),
+      title: "הרחבת מכירה ללקוחות קיימים",
+      body: `שיעור המכירה הנוספת עומד על ${pct(s.upsellRate)}. עלות המכירה
+        ללקוח קיים נמוכה מהותית מה־CAC של לקוח חדש.`,
+      basis: s.avgLtvMonths == null ? "" :
+        `ה־LTV הממוצע בחשבון עומד על ${num(s.avgLtvMonths)} חודשים — זהו חלון
+         הזמן שבו ניתן להציע הרחבה לפני נטישה.`,
     });
   }
 
   if(!items.length){
     return head + `<section class="card">
-      <h2>הכול נראה סביר</h2>
-      <p class="sub">לא מצאנו משהו שבולט לרעה בנתונים שהעלית. ככל שתעלה עוד
-        חודשים, נוכל להשוות ביניהם ולראות מגמות.</p></section>`;
+      <h2>לא זוהו חריגות מהותיות</h2>
+      <p class="sub">בנתונים שיובאו לא נמצא מדד שחורג באופן שמצדיק פעולה.
+         ייבוא תקופות נוספות יאפשר זיהוי מגמות לאורך זמן.</p></section>`;
   }
 
   return head + items.map((item, i) => `<section class="card advice">
     <div class="advice-head">
-      <span class="rank">${i + 1}</span>
-      <div>
+      <div class="advice-title">
         <span class="badge brand">${esc(item.tag)}</span>
         <h2>${esc(item.title)}</h2>
       </div>
       <span class="impact ${item.tint}">${item.impact}</span>
     </div>
     <p class="advice-body">${item.body}</p>
-    ${item.proof ? `<p class="note">${item.proof}</p>` : ""}
+    ${item.compare || ""}
     ${item.chart ? `<div class="advice-chart">${item.chart}</div>` : ""}
+    ${item.basis ? `
+      <button type="button" class="btn btn-secondary btn-sm basis-toggle"
+              data-basis="basis-${i}" aria-expanded="false"
+              aria-controls="basis-${i}">על מה זה מבוסס?</button>
+      <div class="basis" id="basis-${i}" hidden>${item.basis}</div>` : ""}
   </section>`).join("");
 };
 
-/* ══════════════════════════════════════════════════════ predictions
-   The training figures are gone from here. A person running campaigns does not
-   want an error score and a comparison against guessing — those describe how
-   we work, not what they got. What is left is one sentence saying whether a
-   number can be trusted, and the numbers that can. */
-
 PAGES.predict = () => {
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">תחזיות</h1>
-    <p>בחר קמפיין, וראה מה צפוי לקרות איתו לפי מה שקרה עם קמפיינים דומים שלך.</p></div>`;
+  const head = pageHead("predict");
   if(INSIGHTS.empty) return head + emptyState("חיזוי");
 
   return head + `<div id="modelCard"></div>
   <section class="card">
-    <h2>בחר קמפיין</h2>
-    <p class="sub">אפשר לצמצם לפי איך שהקמפיין הצליח, לא רק לפי כמה הוא עלה.</p>
+    <h2>בחירת קמפיין</h2>
+    <p class="sub">סינון לפי ביצועים ולא רק לפי עלות.</p>
     <div class="filters">
-      <div><label for="fTier">גודל תקציב</label>
+      <div><label for="fTier">רמת תקציב</label>
         <select id="fTier"><option value="">הכול</option>
-          <option value="Low">קטן</option><option value="Mid">בינוני</option>
-          <option value="High">גדול</option></select></div>
-      <div><label for="fClose">אחוז סגירה</label>
+          <option value="Low">נמוכה</option><option value="Mid">בינונית</option>
+          <option value="High">גבוהה</option></select></div>
+      <div><label for="fClose">שיעור המרה</label>
         <select id="fClose"><option value="">הכול</option>
           <option value="0-5">עד 5%</option><option value="5-15">5%–15%</option>
           <option value="15-30">15%–30%</option><option value="30-100">מעל 30%</option></select></div>
-      <div><label for="fCpl">עלות לפנייה</label>
+      <div><label for="fCpl">CPL</label>
         <select id="fCpl"><option value="">הכול</option>
           <option value="0-50">עד ₪50</option><option value="50-100">₪50–₪100</option>
           <option value="100-200">₪100–₪200</option><option value="200-99999">מעל ₪200</option></select></div>
-      <div><label for="fAns">אחוז שעונים</label>
+      <div><label for="fAns">שיעור מענה</label>
         <select id="fAns"><option value="">הכול</option>
           <option value="0-40">עד 40%</option><option value="40-60">40%–60%</option>
           <option value="60-100">מעל 60%</option></select></div>
-      <div><label for="fCalls">שיחות עד סגירה</label>
+      <div><label for="fCalls">מגעים עד המרה</label>
         <select id="fCalls"><option value="">הכול</option>
           <option value="0-2">עד 2</option><option value="3-4">3–4</option>
           <option value="5-99">5 ומעלה</option></select></div>
       <div><label for="fSort">מיון</label>
         <select id="fSort">
-          <option value="closeRate">אחוז הסגירה הגבוה ביותר</option>
-          <option value="leads">הכי הרבה פניות</option>
-          <option value="closed">הכי הרבה עסקאות</option>
-          <option value="cpl">העלות הנמוכה ביותר לפנייה</option>
-          <option value="budget">התקציב הגדול ביותר</option>
+          <option value="closeRate">שיעור המרה</option>
+          <option value="leads">נפח לידים</option>
+          <option value="closed">מספר המרות</option>
+          <option value="cpl">CPL</option>
+          <option value="budget">תקציב</option>
           <option value="id">מספר קמפיין</option>
         </select></div>
     </div>
@@ -1671,161 +1691,202 @@ async function renderModelCard(){
 
   if(!data.models.length){
     box.innerHTML = `<section class="card">
-      <h2>עוד אין מספיק נתונים לתחזית</h2>
-      <p class="sub">כדי לחזות משהו על קמפיין חדש צריך לראות לפחות
-        ${num(data.minRows)} קמפיינים קודמים שלך. עם פחות מזה כל תחזית תהיה
-        ניחוש, ואנחנו מעדיפים לא להציג ניחוש.</p>
-      <a class="btn btn-primary" href="#/upload">להעלאת עוד נתונים</a></section>`;
+      <h2>אין די היסטוריה לאומדן</h2>
+      <p class="sub">הפקת אומדן ברמת הקמפיין מחייבת לפחות ${num(data.minRows)}
+        קמפיינים בהיסטוריית החשבון. מתחת לסף זה האומדן אינו יציב, ולכן אינו
+        מוצג.</p>
+      <a class="btn btn-primary" href="#/upload">לייבוא נתונים נוספים</a></section>`;
     return;
   }
 
   const usable = data.models.filter(m => m.useful);
   const rows = Math.max(...data.models.map(m => m.trainedRows));
   box.innerHTML = `<section class="card">
-    <h2>כמה אפשר לסמוך על התחזיות</h2>
+    <h2>מהימנות האומדנים</h2>
     <p class="sub">${usable.length
-      ? `למדנו מ־${num(rows)} הקמפיינים שהעלית, ואנחנו מציגים רק תחזיות
-         שהוכיחו את עצמן על הנתונים שלך.`
-      : `למדנו מ־${num(rows)} הקמפיינים שהעלית, אבל עדיין לא מצאנו דפוס
-         מספיק ברור כדי לחזות. זה בדרך כלל משתפר עם עוד חודשים.`}</p>
+      ? `האומדנים נגזרים מ־${num(rows)} הקמפיינים בהיסטוריית החשבון. מוצגים רק
+         אומדנים שנמצאו יציבים על נתוני הארגון עצמו.`
+      : `נבחנו ${num(rows)} קמפיינים בהיסטוריית החשבון, ולא נמצא דפוס יציב דיו
+         להפקת אומדן. ייבוא תקופות נוספות משפר זאת.`}</p>
     ${usable.length ? `<div class="callout pos">
-      ${usable.map(m => esc(TARGET_LABEL[m.target] || m.target)).join(" · ")}
-      — התחזיות האלה עקביות מספיק כדי להציג.</div>` : ""}
+      אומדנים זמינים: ${usable.map(m =>
+        esc(TARGET_LABEL[m.target] || m.target)).join(" · ")}</div>` : ""}
     ${usable.length < data.models.length ? `<p class="note">
-      על ${data.models.filter(m => !m.useful).map(m =>
-        esc(TARGET_LABEL[m.target] || m.target)).join(" ו")}
-      אנחנו לא מציגים תחזית — מה שראינו עד עכשיו לא מספיק עקבי.</p>` : ""}
+      לא מוצג אומדן עבור ${data.models.filter(m => !m.useful).map(m =>
+        esc(TARGET_LABEL[m.target] || m.target)).join(", ")} — הביצועים
+      ההיסטוריים אינם עקביים דיים.</p>` : ""}
   </section>`;
 }
 
+PAGES.data = () => {
+  const head = pageHead("data", periodFilter());
+  if(INSIGHTS.empty) return head + emptyState("הצגה");
+  const s = INSIGHTS.summary, t = periodTotals();
+
+  const kpis = `<section class="band">
+    <h2 class="band-title">מדדי יעילות</h2>
+    <div class="grid">
+      ${tile("t1", "campaigns", num(t.rows))}
+      ${tile("t2", "answer_rate", pct(t.answerRate == null ? null : Math.round(t.answerRate * 10) / 10))}
+      ${tile("t3", "close_rate", pct(t.closeRate == null ? null : Math.round(t.closeRate * 10) / 10))}
+      ${tile("t5", "ltv_months", s.avgLtvMonths == null ? na() : num(s.avgLtvMonths) + " חודשים")}
+    </div>
+  </section>`;
+
+  const mix = `<section class="card">
+    <h2>תמהיל התקציב</h2>
+    <p class="sub">התפלגות הקמפיינים לפי רמת תקציב: נמוכה עד ₪1,500,
+       בינונית עד ₪5,000, גבוהה מעל.</p>
+    ${donut(s.tiers.map((tier, i) => ({
+      label: { Low: "תקציב נמוך", Mid: "תקציב בינוני", High: "תקציב גבוה" }[tier.tier] || tier.tier,
+      value: tier.count, colour: PALETTE[i],
+    })))}</section>`;
+
+  return head + kpis + mix + campaignTableCard();
+};
+
 PAGES.funnel = () => {
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">מסע הלקוח</h1>
-    <p>מהרגע שמישהו השאיר פרטים ועד שהוא קונה. כל שלב מראה כמה אנשים נשארו
-       וכמה נפלו בדרך.</p></div>`;
+  const head = pageHead("funnel", periodFilter());
   if(INSIGHTS.empty) return head + emptyState("הצגה");
 
   const f = INSIGHTS.followup;
-  const STAGE = { "Leads": "השאירו פרטים", "Answered": "ענו לטלפון", "Closed": "קנו",
-                  "Follow-up 1": "שיחה שנייה", "Follow-up 2": "שיחה שלישית",
-                  "Follow-up 3": "שיחה רביעית", "Follow-up 4": "שיחה חמישית",
-                  "Follow-up 5": "שיחה שישית" };
+  const STAGE = { "Leads": "לידים שהתקבלו", "Answered": "לידים שנענו", "Closed": "המרות",
+                  "Follow-up 1": "מגע שני", "Follow-up 2": "מגע שלישי",
+                  "Follow-up 3": "מגע רביעי", "Follow-up 4": "מגע חמישי",
+                  "Follow-up 5": "מגע שישי" };
 
   const journey = `<section class="card">
-    <h2>מה קורה ל־${num(f.funnel[0].count)} האנשים שהשאירו פרטים</h2>
-    <p class="sub">המספרים הם של כל ${num(f.campaigns)} הקמפיינים יחד, לא של
-       קמפיין אחד.</p>
-    <div class="callout warn"><strong>${pct(f.unansweredPct)} מהם לא ענו לטלפון
-      אף פעם</strong> — ${num(f.unanswered)} אנשים. זה השלב שמאבד הכי הרבה,
-      עוד לפני שהתחלתם לשכנע מישהו.</div>
-    ${funnelChart(f.funnel.map(s => ({ label: STAGE[s.stage] || s.stage, value: s.count })))}
+    <h2>שיעורי מעבר בין שלבי המשפך${hint("answer_rate")}</h2>
+    <p class="sub">מצטבר על פני ${num(f.campaigns)} קמפיינים, לא ברמת קמפיין בודד.</p>
+    <div class="callout warn"><strong>${pct(f.unansweredPct)} מהלידים לא נענו כלל</strong>
+      — ${num(f.unanswered)} לידים. זהו שלב הנשירה הגדול ביותר במשפך, לפני כל
+      פעילות מגע נוספת.</div>
+    ${funnelChart(f.funnel.map(x => ({ label: STAGE[x.stage] || x.stage, value: x.count })))}
   </section>`;
 
-  let calls = "";
+  let contact = "";
   if(f.byCalls.length && f.gapRaw){
-    const qHe = { "Worst 25%": "פניות חלשות", "Low-mid": "בינוניות-חלשות",
-                  "High-mid": "בינוניות-טובות", "Best 25%": "פניות טובות" };
-    calls = `<section class="card">
-      <h2>כמה שיחות כדאי להשקיע בכל פנייה</h2>
-      <p class="sub">כמה כסף נשאר בממוצע מקמפיין, לפי כמה שיחות נדרשו כדי לסגור.</p>
+    const BAND = { "Worst 25%": "רבעון תחתון", "Low-mid": "רבעון שני",
+                   "High-mid": "רבעון שלישי", "Best 25%": "רבעון עליון" };
+    contact = `<section class="card">
+      <h2>רווחיות לפי מספר מגעים עד המרה</h2>
+      <p class="sub">רווח ממוצע לקמפיין, מקובץ לפי כמה מגעים נדרשו לסגירה.</p>
       ${barChart(f.byCalls.map(c => ({
-        label: `${c.calls} שיחות`, value: Math.max(0, c.avgProfit),
+        label: `${c.calls} מגעים`, value: Math.max(0, c.avgProfit),
         note: `${nf.format(c.campaigns)} קמפיינים`,
       })), { formatter: (v) => "₪" + nf.format(Math.round(v)) })}
-      <div class="callout brand" style="margin-top:var(--s-5)">
-        עסקה שנסגרת תוך שתי שיחות שווה <strong>פי ${mult(f.gapRaw)}</strong>
-        מעסקה שדרשה חמש שיחות ומעלה.
-        <br><br>
-        <strong>אבל זה לא אומר שכדאי להפסיק להתקשר.</strong> בדקנו אם הפער נובע
-        פשוט מזה שהפניות המהירות היו טובות יותר מלכתחילה — ולא. גם כשמשווים בין
-        קמפיינים עם פניות באיכות דומה, הפער נשאר פי ${mult(f.gapWithinQuality)}.
+      <div class="callout brand">
+        קמפיינים שנסגרים עד שני מגעים רווחיים <strong>פי ${mult(f.gapRaw)}</strong>
+        מקמפיינים שדרשו חמישה מגעים ומעלה. הפער אינו מוסבר באיכות הלידים:
+        גם בבקרה על שיעור המענה הוא נותר פי ${mult(f.gapWithinQuality)}.
       </div>
-      <h3 class="sub-head">אותה השוואה, בין פניות באיכות דומה</h3>
-      <p class="sub">כמה כסף נשאר בממוצע. השורות מחולקות לפי כמה אנשים ענו
-         לטלפון — דבר שנקבע לפני שהחלטתם כמה להתקשר.</p>
+
+      <h3 class="sub-head">בקרה על איכות הלידים</h3>
+      <p class="sub">אותה השוואה, בתוך רבעונים של שיעור מענה — מדד שנקבע לפני
+         כל החלטת מגע, ולכן מפריד בין איכות הליד לבין השפעת המגעים עצמם.</p>
       <div class="table-wrap"><table><thead><tr>
-        <th>איכות הפניות</th><th>נסגר מהר</th><th>3–4 שיחות</th><th>5 שיחות ומעלה</th>
+        <th>איכות לידים</th><th>עד 2 מגעים</th><th>3–4 מגעים</th><th>5+ מגעים</th>
       </tr></thead><tbody>${f.byQuality.map(q => `<tr>
-        <td>${qHe[q.band] || q.band}</td><td>${money(q.fast)}</td>
+        <td>${BAND[q.band] || q.band}</td><td>${money(q.fast)}</td>
         <td>${money(q.medium)}</td><td>${money(q.slow)}</td></tr>`).join("")}
       </tbody></table></div>
       ${f.wastedCallShare != null ? `<div class="callout warn">
-        ${pct(f.wastedCallShare)} מהשיחות שהצוות שלך מבצע מגיעות לאנשים שבסוף
-        לא קונים.</div>` : ""}
+        <strong>${pct(f.wastedCallShare)}</strong> מזמן החייגנות מופנה ללידים
+        שאינם מומרים בסופו של דבר.${hint("wasted_calls")}</div>` : ""}
     </section>`;
   }
-  return head + journey + calls;
+  return head + journey + contact;
 };
 
 PAGES.budget = () => {
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">כסף</h1>
-    <p>כמה מחזיר כל שקל שהשקעת, ומה היה קורה אם היית מחלק את אותו כסף אחרת.</p></div>`;
+  const head = pageHead("budget", periodFilter());
   if(INSIGHTS.empty) return head + emptyState("חישוב");
 
   const b = INSIGHTS.budget;
   if(!b.curve.length){
-    return head + `<section class="card"><h2>עוד אין מספיק מידע על רווח</h2>
-      <p class="sub">כדי לחשב כמה מחזיר כל שקל צריך שיהיה רשום רווח לפחות בחלק
-         מהקמפיינים.</p></section>`;
+    return head + `<section class="card"><h2>אין די נתוני רווחיות</h2>
+      <p class="sub">חישוב ROAS מחייב נתוני רווח בחלק מהקמפיינים לפחות.</p>
+    </section>`;
   }
 
   const curve = `<section class="card">
-    <h2>${term("return_per_shekel").label}, לפי גודל הקמפיין</h2>
-    <p class="sub">${term("return_per_shekel").explain}</p>
+    <h2>ROAS לפי רמת תקציב${hint("roas")}</h2>
+    <p class="sub">החזר על כל שקל מדיה, מקובץ לפי גובה תקציב הקמפיין.</p>
     ${barChart(b.curve.map(c => ({
       label: money(c.budget), value: Math.max(0, c.returnPerShekel),
       note: `${nf.format(c.campaigns)} קמפיינים`,
       colour: c.returnPerShekel >= 1 ? "var(--c3)" : "var(--c4)",
     })), { formatter: (v) => "₪" + v.toFixed(2) })}
-    <div class="callout warn">שים לב: <strong>יותר תקציב לא אומר יותר רווח.</strong>
-      יש גודל שבו הקמפיינים שלך עובדים הכי טוב, ומעליו כל שקל נוסף מחזיר פחות.</div>
+    <div class="callout warn">הקשר אינו ליניארי: קיימת רמת תקציב שבה ה־ROAS
+      מגיע לשיא, ומעליה כל שקל נוסף מניב תשואה שולית יורדת.</div>
   </section>`;
 
-  let plan = "";
+  let scenario = "";
   if(b.best){
-    const rows = [...b.strategies.slice(0, 5), ...b.strategies.slice(-2)];
-    plan = `<section class="card">
-      <h2>מה היה קורה אם היית מחלק את הכסף אחרת</h2>
-      <div class="callout pos">לקחנו את ${money(b.pot)} — כל מה שהוצאת בפועל —
-        ובדקנו מה היה קורה אם הכול היה הולך לקמפיינים בגודל אחד.
-        <br><br>
-        הגודל הכי טוב אצלך הוא <strong>${money(b.best.budgetEach)}</strong>:
-        הרווח היה <strong>${money(b.best.expectedProfit)}</strong> במקום
-        ${money(b.current.expectedProfit)} — <strong>${pct(b.gainPct)} יותר</strong>,
-        מאותו כסף בדיוק.</div>
-      <div class="table-wrap"><table><thead><tr>
-        <th>אם כל הקמפיינים היו בגודל</th><th>כמה קמפיינים</th>
-        <th>רווח צפוי</th><th>לכל שקל</th>
-      </tr></thead><tbody>
-        ${rows.map((strategy, i) => `<tr class="${
-          i === 0 ? "pos" : (i >= rows.length - 2 ? "neg" : "")}">
-          <td>${money(strategy.budgetEach)}</td><td>${num(strategy.campaigns)}</td>
-          <td>${money(strategy.expectedProfit)}</td>
-          <td>${money(strategy.returnPerShekel)}</td></tr>`).join("")}
-        <tr style="font-weight:700"><td>איך שזה מחולק היום</td><td>—</td>
-          <td>${money(b.current.expectedProfit)}</td>
-          <td>${money(b.current.returnPerShekel)}</td></tr>
-      </tbody></table></div>
-      <p class="note">"איך שזה מחולק היום" הוא החלוקה האמיתית שלך, לא תרחיש
-         שהמצאנו.</p></section>`;
+    scenario = `<section class="card">
+      <h2>ניתוח תרחיש הקצאה</h2>
+      <p class="sub">מה היה ה־ROAS אילו אותה הוצאת מדיה הייתה מפוצלת לקמפיינים
+         ברמת תקציב אחידה.</p>
+      ${comparison(
+        { label: "התמהיל הנוכחי", profit: b.current.expectedProfit,
+          roas: b.current.returnPerShekel },
+        { label: `הקצאה ל־${money(b.best.budgetEach)} לקמפיין`,
+          profit: b.best.expectedProfit, roas: b.best.returnPerShekel },
+        b.gainPct)}
+      <details style="margin-top:var(--s-5)">
+        <summary>פירוט מלא לפי רמת תקציב</summary>
+        <div class="table-wrap" style="margin-top:var(--s-3)"><table><thead><tr>
+          <th>רמת תקציב</th><th>מספר קמפיינים</th><th>רווח צפוי</th><th>ROAS</th>
+        </tr></thead><tbody>
+          ${b.strategies.map((x, i) => `<tr class="${i === 0 ? "pos" : ""}">
+            <td>${money(x.budgetEach)}</td><td>${num(x.campaigns)}</td>
+            <td>${money(x.expectedProfit)}</td><td>${money(x.returnPerShekel)}</td>
+          </tr>`).join("")}
+        </tbody></table></div>
+      </details>
+      <p class="note">"התמהיל הנוכחי" הוא ההקצאה בפועל בחשבון, לא תרחיש תיאורטי.</p>
+    </section>`;
   }
-  return head + curve + plan;
+  return head + curve + scenario;
 };
 
+/* Before and against after, side by side. A percentage on its own tells nobody
+   what it is a percentage of. */
+function comparison(before, after, gainPct){
+  return `<div class="compare">
+    <div class="compare-side">
+      <span class="compare-cap">${esc(before.label)}</span>
+      <span class="compare-num">${money(before.profit)}</span>
+      <span class="compare-sub">ROAS ${money(before.roas)}</span>
+    </div>
+    <div class="compare-arrow" aria-hidden="true">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+    </div>
+    <div class="compare-side is-after">
+      <span class="compare-cap">${esc(after.label)}</span>
+      <span class="compare-num">${money(after.profit)}</span>
+      <span class="compare-sub">ROAS ${money(after.roas)}</span>
+    </div>
+    ${gainPct != null ? `<div class="compare-delta">+${pct(gainPct)} רווח</div>` : ""}
+  </div>`;
+}
 
 PAGES.upload = () => {
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">העלאת נתונים</h1>
-    <p>העלה קובץ CSV של קמפיינים לחודש מסוים. המערכת בודקת אותו לפני השמירה
-       ומראה לך בדיוק מה נמצא בו — שום דבר לא נשמר עד שתאשר.</p></div>`;
+  const head = pageHead("upload");
 
   const form = `<section class="card">
-    <h2>קובץ חדש</h2>
-    <p class="sub">כל חודש נשמר בנפרד, כך שאפשר להשוות בין חודשים ולבטל חודש בלי לגעת באחרים.</p>
+    <h2>ייבוא תקופה חדשה</h2>
+    <p class="sub">כל תקופה נשמרת בנפרד, כדי לאפשר השוואה בין תקופות והסרה של
+       תקופה בודדת ללא השפעה על השאר. הקובץ נבדק לפני השמירה, ולא נשמר דבר עד
+       לאישור.</p>
 
     <div class="field" style="max-width:260px">
-      <label id="upPeriodLabel">החודש שהנתונים מתארים</label>
+      <label id="upPeriodLabel">התקופה שהנתונים מתארים</label>
       ${monthPicker("upPeriod", thisMonth)}
-      <p class="hint">חודשים עתידיים חסומים — אין להם עדיין נתונים.</p>
+      <p class="hint">תקופות עתידיות חסומות.</p>
     </div>
 
     <div class="drop" id="drop" role="button" tabindex="0" aria-describedby="dropHint">
@@ -1835,25 +1896,24 @@ PAGES.upload = () => {
           <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
           <path d="M14 3v5h5"/><path d="M12 18v-6M9.5 14.5 12 12l2.5 2.5"/></svg>
       </div>
-      <div>גרור לכאן קובץ CSV, או לחץ כדי לבחור</div>
+      <div>גרירת קובץ CSV לכאן, או לחיצה לבחירה</div>
       <div class="name" id="dropName"></div>
     </div>
-    <p class="hint" id="dropHint">עד 10MB. הקובץ צריך להכיל את 19 העמודות שברשימה למטה.</p>
+    <p class="hint" id="dropHint">עד 10MB. על הקובץ להכיל את 19 השדות המפורטים למטה.</p>
     <input id="upFile" type="file" accept=".csv,text/csv" class="hidden">
 
     <div class="row-actions">
-      <button class="btn btn-primary" id="upCheck" disabled>בדוק את הקובץ</button>
-      <button class="btn btn-primary" id="upSave" disabled style="background:var(--pos)">שמור את החודש הזה</button>
+      <button class="btn btn-primary" id="upCheck" disabled>בדיקת הקובץ</button>
+      <button class="btn btn-primary" id="upSave" disabled style="background:var(--pos)">שמירת התקופה</button>
     </div>
     <div id="upReport"></div>
   </section>`;
 
   const cols = `<section class="card">
-    <h2>מה הקובץ צריך להכיל</h2>
-    <p class="sub">אין צורך לשנות שמות עמודות. המערכת מזהה לבד גם
-       "תקציב", גם "Ad Spend" וגם "budget", בעברית ובאנגלית. מה שהיא לא תזהה
-       בוודאות — היא תשאל אותך עליו ותראה לך דוגמאות מהתוכן, במקום לנחש.
-       הרשימה כאן היא כדי שתדע איזה מידע צריך להיות בקובץ.</p>
+    <h2>שדות נדרשים</h2>
+    <p class="sub">אין צורך להתאים שמות עמודות. המערכת מזהה אוטומטית "תקציב",
+       "Ad Spend" ו־"budget" כאותו שדה, בעברית ובאנגלית. שדה שלא יזוהה בוודאות
+       יוצג לאישור, לצד דוגמאות מהתוכן שלו. הרשימה כאן היא לצורך הכנת הקובץ.</p>
     <div class="table-wrap"><table><thead><tr>
       <th>מה צריך</th><th>איך אולי קוראים לזה אצלך</th><th>סוג</th><th>דוגמה</th>
     </tr></thead><tbody>
@@ -1907,7 +1967,7 @@ function uploadHistoryCard(){
     <td><button class="btn btn-danger btn-sm" data-del="${u.id}" data-period="${u.period}">מחק חודש</button></td>
   </tr>`).join("");
 
-  return `<section class="card"><h2>היסטוריית העלאות</h2>` + (rows
+  return `<section class="card"><h2>היסטוריית ייבוא</h2>` + (rows
     ? `<p class="sub">מחיקת חודש מסירה גם את השורות שלו. אין עריכה של שורות קיימות —
          תיקון של חודש נעשה במחיקה והעלאה מחדש, כך שנשאר תיעוד של שתי הפעולות.</p>
        <div class="table-wrap"><table><thead><tr>
@@ -2126,14 +2186,14 @@ const TABLE_PAGE_SIZE = 25;
 let TABLE = { sort: "closeRate", dir: -1, page: 0, query: "", filter: "" };
 
 const TABLE_COLUMNS = [
-  { key: "id",         label: "קמפיין",          format: (r) => "#" + nf.format(r.id) },
-  { key: "budget",     label: "תקציב",           format: (r) => money(r.budget) },
-  { key: "leads",      label: "פניות",           format: (r) => num(r.leads) },
-  { key: "answered",   label: "ענו",             format: (r) => num(r.answered) },
-  { key: "closed",     label: "נסגרו",           format: (r) => num(r.closed) },
-  { key: "closeRate",  label: "אחוז סגירה",      format: (r) => pct(round1(r.closeRate)) },
-  { key: "cpl",        label: "עלות לפנייה",     format: (r) => money(r.cpl) },
-  { key: "cac",        label: "עלות ללקוח",      format: (r) => money(r.cac) },
+  { key: "id",        label: "קמפיין",     format: (r) => "#" + nf.format(r.id) },
+  { key: "budget",    label: "תקציב",      format: (r) => money(r.budget) },
+  { key: "leads",     label: "לידים",      format: (r) => num(r.leads) },
+  { key: "answered",  label: "נענו",       format: (r) => num(r.answered) },
+  { key: "closed",    label: "המרות",      format: (r) => num(r.closed) },
+  { key: "closeRate", label: "שיעור המרה", format: (r) => pct(round1(r.closeRate)) },
+  { key: "cpl",       label: "CPL",        format: (r) => money(r.cpl) },
+  { key: "cac",       label: "CAC",        format: (r) => money(r.cac) },
 ];
 
 const round1 = (v) => Math.round(v * 10) / 10;
@@ -2151,9 +2211,26 @@ function filteredRows(){
   const q = TABLE.query.trim();
   let rows = campaignRows();
 
-  if(TABLE.filter === "best") rows = rows.filter(r => r.closeRate >= 20);
-  if(TABLE.filter === "worst") rows = rows.filter(r => r.closeRate < 8);
-  if(TABLE.filter === "expensive") rows = rows.filter(r => r.cpl >= 100);
+  // Relative to this account. Fixed thresholds meant an account whose best
+  // campaign converts at 12% saw an empty list under "the best" — the filter
+  // was reporting on our expectations rather than on their data.
+  const quartile = (values, q) => {
+    if(!values.length) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
+  };
+  if(TABLE.filter === "best"){
+    const cut = quartile(rows.map(r => r.closeRate), 0.75);
+    rows = rows.filter(r => r.closeRate >= cut && r.closed > 0);
+  }
+  if(TABLE.filter === "worst"){
+    const cut = quartile(rows.map(r => r.closeRate), 0.25);
+    rows = rows.filter(r => r.closeRate <= cut);
+  }
+  if(TABLE.filter === "expensive"){
+    const cut = quartile(rows.map(r => r.cpl), 0.75);
+    rows = rows.filter(r => r.cpl >= cut);
+  }
   if(TABLE.filter === "big") rows = rows.filter(r => r.budget > 5000);
   if(TABLE.filter === "small") rows = rows.filter(r => r.budget <= 1500);
 
@@ -2174,8 +2251,9 @@ function campaignTableCard(){
   const slice = rows.slice(page * TABLE_PAGE_SIZE, (page + 1) * TABLE_PAGE_SIZE);
 
   const chips = [
-    ["", "הכול"], ["best", "הכי מצליחים"], ["worst", "הכי חלשים"],
-    ["expensive", "יקרים לפנייה"], ["big", "תקציב גדול"], ["small", "תקציב קטן"],
+    ["", "כל הקמפיינים"], ["best", "רבעון עליון בהמרה"],
+    ["worst", "רבעון תחתון בהמרה"], ["expensive", "CPL גבוה"],
+    ["big", "תקציב גבוה"], ["small", "תקציב נמוך"],
   ].map(([key, label]) => `<button type="button" class="chip${
     TABLE.filter === key ? " on" : ""}" data-filter="${key}">${label}</button>`).join("");
 
@@ -2489,7 +2567,7 @@ function wireUpload(){
       if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
       $("upReport").innerHTML = `<div class="callout neg">${esc(e.message)}</div>`;
     }finally{
-      btn.disabled = false; btn.textContent = "בדוק את הקובץ";
+      btn.disabled = false; btn.textContent = "בדיקת הקובץ";
     }
   };
 
@@ -2502,7 +2580,8 @@ function wireUpload(){
     // rather than leaving a disabled button to be read as a hang. That is what
     // it was read as, and reasonably.
     $("upReport").innerHTML = `<div class="callout brand">
-      שומרים את השורות. זה לוקח כמה שניות — אל תסגור את החלון.</div>`;
+      מייבאים את השורות. התהליך אורך מספר שניות — יש להשאיר את החלון
+      פתוח עד לסיומו.</div>`;
     try{
       const r = await send("/api/uploads", { period: monthValue("upPeriod") });
       if(r.failed){ renderReport(r, false); return; }
@@ -2530,7 +2609,7 @@ function wireUpload(){
       if(save){
         // Both, always. Restoring only the label left the button dead.
         save.disabled = !verified || !chosen;
-        save.textContent = "שמור את החודש הזה";
+        save.textContent = "שמירת התקופה";
       }
     }
   };
@@ -2607,8 +2686,7 @@ let PROFILE_TAB = "account";
 let SEATS = null;
 
 PAGES.profile = () => {
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">פרופיל והגדרות</h1>
-    <p>פרטי החשבון, מי עוד רואה את הנתונים, ומה המערכת מיידעת אותך עליו.</p></div>`;
+  const head = pageHead("profile");
 
   const nav = `<div class="segmented" role="tablist" aria-label="הגדרות">
     ${PROFILE_TABS.map(([key, label]) => `
@@ -2807,6 +2885,8 @@ const skeletonRows = (n) => Array.from({length: n},
 
 /* ─────────────────────────────────────────────────────── wiring */
 function wireProfile(){
+  const period = $("periodSel");
+  if(period) period.onchange = () => { PERIOD = period.value; render(); };
   document.querySelectorAll("[data-ptab]").forEach(button => {
     button.onclick = () => {
       PROFILE_TAB = button.dataset.ptab;
@@ -2902,7 +2982,71 @@ async function wireSeats(){
 }
 
 /* --------------------------------------------------------------- routing */
-const ROUTE_ORDER = ["home","advice","data","funnel","budget","predict","upload","profile"];
+/* ═══════════════════════════════════════════ one name per page, one place
+   The sidebar said "משפך המכירות" and the page it opened said "מסע הלקוח";
+   "תקציב" opened "כסף". Two lists meant two chances to disagree, and they took
+   both. Everything below reads from here: the navigation, the routes, and the
+   heading at the top of each page. */
+
+const PAGE_META = {
+  home:    { nav: "סקירת ביצועים",       title: "סקירת ביצועים",
+             lead: "תמונת מצב של פעילות המדיה בתקופה הנבחרת." },
+  advice:  { nav: "המלצות אופטימיזציה",  title: "המלצות אופטימיזציה",
+             lead: "פעולות מדורגות לפי הפוטנציאל הכספי שלהן, עם הנתון שממנו כל אחת נגזרת." },
+  data:    { nav: "ביצועי קמפיינים",     title: "ביצועי קמפיינים",
+             lead: "כלל הקמפיינים שיובאו למערכת, עם סינון ומיון לפי כל מדד." },
+  funnel:  { nav: "משפך ההמרה",          title: "משפך ההמרה",
+             lead: "שיעורי המעבר בין שלבי המשפך, ואיפה נאבד נפח." },
+  budget:  { nav: "החזר על השקעה",       title: "החזר על השקעה",
+             lead: "ROAS לפי רמת תקציב, וניתוח תרחישים להקצאה מחדש." },
+  predict: { nav: "תחזיות",              title: "תחזיות",
+             lead: "אומדנים ברמת הקמפיין, מבוססים על ביצועי קמפיינים דומים בחשבון." },
+  upload:  { nav: "ייבוא נתונים",        title: "ייבוא נתונים",
+             lead: "העלאת קובץ ביצועים חודשי וניהול היסטוריית הייבוא." },
+  profile: { nav: "הגדרות חשבון",        title: "הגדרות חשבון",
+             lead: "פרטי הארגון, הרשאות משתמשים והגדרות המערכת." },
+};
+
+const ROUTE_ORDER = Object.keys(PAGE_META);
+
+/* Every page opens the same way, so no page can invent its own heading style
+   and none can drift from the label that led to it. */
+function pageHead(key, aside){
+  const meta = PAGE_META[key];
+  return `<header class="page-head">
+    <div>
+      <h1 id="pageTitle" tabindex="-1">${esc(meta.title)}</h1>
+      <p>${esc(meta.lead)}</p>
+    </div>
+    ${aside ? `<div class="page-actions">${aside}</div>` : ""}
+  </header>`;
+}
+
+const NAV_ICON = {
+  home: '<path d="M3 13h4l3 7 4-16 3 9h4"/>',
+  advice: '<path d="M9 21h6"/><path d="M10 18h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.5 1 2.5h6c0-1 .4-1.9 1-2.5A6 6 0 0 0 12 3z"/>',
+  data: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  funnel: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',
+  budget: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  predict: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
+  upload: '<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+  profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>',
+};
+
+const NAV_GROUPS = [
+  ["ניתוח", ["home", "advice", "data", "funnel", "budget", "predict"]],
+  ["ניהול", ["upload", "profile"]],
+];
+
+function paintNav(){
+  $("nav").innerHTML = NAV_GROUPS.map(([group, keys]) => `
+    <li class="nav-group">${esc(group)}</li>
+    ${keys.map(key => `<li><a href="#/${key}" data-page="${key}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-linecap="round" stroke-linejoin="round">${NAV_ICON[key]}</svg>
+      ${esc(PAGE_META[key].nav)}</a></li>`).join("")}`).join("");
+}
+
 
 function currentPage(){
   const key = (location.hash || "").replace(/^#\/?/, "").split("?")[0];
@@ -2911,6 +3055,7 @@ function currentPage(){
 
 function render(){
   const page = currentPage();
+  if(!$("nav").children.length) paintNav();
   document.querySelectorAll("#nav a").forEach(a => {
     if(a.dataset.page === page) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
@@ -2924,6 +3069,8 @@ function render(){
   window.scrollTo(0, 0);
   if(page === "data" && !INSIGHTS.empty) wireCampaignTable();
   if(page === "predict" && !INSIGHTS.empty){ wirePredict(); renderModelCard(); }
+  const period = $("periodSel");
+  if(period) period.onchange = () => { PERIOD = period.value; render(); };
   wireHints();
   if(page === "upload") wireUpload();
   if(page === "profile") wireProfile();
@@ -2963,10 +3110,12 @@ function wirePredict(){
     $("recCount").textContent = list.length
       ? `${nf.format(list.length)} קמפיינים תואמים מתוך ${nf.format(all.length)}`
       : "אין קמפיינים שתואמים לסינון הזה.";
+    // Short enough to fit the control. The full figures are one row away in
+    // the campaigns table, and a label that is cut off in the middle is worse
+    // than one that stops on purpose.
     $("recSel").innerHTML = list.slice(0, 300).map(r =>
-      `<option value="${r.id}">קמפיין ${r.id} · ₪${nf.format(r.budget)} · ` +
-      `${nf.format(r.leads)} לידים · ${r.closeRate.toFixed(1)}% סגירה · ` +
-      `₪${Math.round(r.cpl)} לליד</option>`).join("");
+      `<option value="${r.id}">#${r.id} · ₪${nf.format(r.budget)} · ` +
+      `${r.closeRate.toFixed(1)}% המרה</option>`).join("");
     $("recSel").disabled = !list.length;
     if(list.length) score();
     else $("predOut").innerHTML = "";
@@ -3012,9 +3161,9 @@ function renderPrediction(d){
       // reads as a prediction, and this one is not.
       return `<div class="tile">
         <div class="k">${esc(label)}</div>
-        <div class="v" style="font-size:var(--t-lg);color:var(--text-3)">אין תחזית</div>
-        <div class="n">עוד לא ראינו מספיק קמפיינים דומים כדי לומר משהו על זה.</div>
-        ${was ? `<div class="actual">מה שקרה בפועל: ${was}</div>` : ""}</div>`;
+        <div class="v" style="font-size:var(--t-lg);color:var(--text-3)">אין אומדן</div>
+        <div class="n">אין די היסטוריה יציבה עבור מדד זה.</div>
+        ${was ? `<div class="actual">בפועל: ${was}</div>` : ""}</div>`;
     }
     const value = p.kind === "regression"
       ? (target === "ltv_months"
@@ -3024,12 +3173,12 @@ function renderPrediction(d){
     return `<div class="tile ${TINTS[target] || "t1"}">
       <div class="k">${esc(label)}</div>
       <div class="v">${value}</div>
-      ${was ? `<div class="actual">מה שקרה בפועל: ${was}</div>` : ""}</div>`;
+      ${was ? `<div class="actual">בפועל: ${was}</div>` : ""}</div>`;
   };
 
   $("predOut").innerHTML = `<div class="pred">${shown.map(card).join("")}</div>
-    <p class="note">התחזיות מבוססות על מה שקרה בקמפיינים דומים שלך.
-      ${term("ltv_months").explain}</p>`;
+    <p class="note">האומדנים נגזרים מביצועי קמפיינים בעלי מאפיינים דומים
+      בהיסטוריית החשבון.</p>`;
 }
 
 
