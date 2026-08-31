@@ -52,7 +52,8 @@ models/         trained artifacts, committed so a deploy need not retrain
 scripts/        CSV loader
 migrations/     schema history; 002 turns one company into an engine anyone can join,
                 003 backfills workspaces for accounts that predate the trigger,
-                004 lets a company rename itself, 005 stores its own models
+                004 lets a company rename itself, 005 stores its own models,
+                006 stores its logo
 ```
 
 ## Running it locally
@@ -86,6 +87,29 @@ python analysis/package4_super_customer.py  # Package 4  (tuning, a few minutes)
 python analysis/package5_followup.py        # Package 5
 python analysis/package6_budget.py          # Package 6
 ```
+
+## The interface
+
+One HTML file, no build step and no framework. Everything visual comes from the
+token block at the top of `app/static/index.html`: two themes defined as the
+same names with different values, so no rule below that block knows which theme
+it is drawing.
+
+The theme is set by four lines in the head, before the stylesheet paints,
+because deciding it in the main script at the end of the body shows every
+dark-mode user a white flash on every load. The palette is written a second
+time under `prefers-color-scheme`, so a browser with no JavaScript still gets
+the right one — duplicated because plain CSS cannot share a token block between
+two selectors, with a test asserting the two never drift.
+
+No native `alert` or `confirm` anywhere: both block the page, cannot be written
+in Hebrew by us, and are prefixed by the browser with the host name. Messages
+are toasts, and destructive actions get a real dialog with a focus trap.
+
+`/api/me` asks for the whole company row rather than naming its columns. That
+is not laziness: PostgREST rejects the entire query if one named column is
+missing, and `/api/me` runs on every sign-in — naming `logo_b64` there took the
+product down for every user between a deploy and its migration. A test pins it.
 
 ## Models
 

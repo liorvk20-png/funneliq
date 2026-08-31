@@ -476,7 +476,13 @@ def me(token: str = Depends(get_current_user_token)):
             "the workspace trigger existed, or the trigger failed.",
         )
     profile = profiles[0]
-    companies = client.table("companies").select("id,name,created_at").execute().data
+    # select("*") rather than naming logo_b64, so this endpoint works whether or
+    # not migration 006 has run yet. Naming a column that does not exist makes
+    # PostgREST reject the whole query, and /api/me is called on every sign-in —
+    # a deploy that landed before the migration would take the entire product
+    # down until someone noticed. There is nothing on a company row the company
+    # itself may not see, so asking for all of it costs nothing.
+    companies = client.table("companies").select("*").execute().data
     company = companies[0] if companies else None
 
     # count="exact" asks Postgres for the total instead of counting a page of
@@ -813,6 +819,43 @@ def _retrain(client, company_id: str, upload_id: str | None) -> list[dict]:
     return out
 
 
+# Raster formats only. An SVG is a document that can carry script, and this one
+# is chosen by a customer and then shown to their colleagues — the one place in
+# the product where one person's upload renders in another person's browser.
+LOGO_TYPES = ("image/png", "image/jpeg", "image/webp", "image/gif")
+MAX_LOGO_B64 = 400_000
+
+
+def _check_logo(value) -> str | None:
+    """A data URL we are willing to store, or None to clear the logo."""
+    if value in (None, ""):
+        return None
+    text = str(value)
+    if not text.startswith("data:"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "פורמט הלוגו אינו נתמך.")
+    header, _, encoded = text.partition(",")
+    mime = header[5:].split(";")[0]
+    if mime not in LOGO_TYPES:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "אפשר להעלות PNG, JPG, WEBP או GIF. קובצי SVG אינם נתמכים מטעמי אבטחה.",
+        )
+    if ";base64" not in header:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "פורמט הלוגו אינו נתמך.")
+    if len(text) > MAX_LOGO_B64:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            "הלוגו גדול מדי. עד 300KB בערך.")
+    try:
+        # Decoding proves it is really base64 rather than trusting the header,
+        # so a malformed string fails here instead of as a broken image in
+        # every colleague's browser.
+        base64.b64decode(encoded, validate=True)
+    except Exception:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "הקובץ לא נקרא כתמונה תקינה.") from None
+    return text
+
+
 @app.patch("/api/company")
 def rename_company(payload: dict, token: str = Depends(get_current_user_token)):
     """
@@ -822,13 +865,35 @@ def rename_company(payload: dict, token: str = Depends(get_current_user_token)):
     the UPDATE policy added in 004 restricts the statement to the caller's own
     row, so an id supplied by a caller cannot widen what the update touches.
     """
-    name = str(payload.get("name", "")).strip()
-    if not 1 <= len(name) <= 120:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST,
-                            "שם החברה חייב להיות בין תו אחד ל־120 תווים.")
+    changes: dict[str, str | None] = {}
+
+    if "name" in payload:
+        name = str(payload.get("name", "")).strip()
+        if not 1 <= len(name) <= 120:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                                "שם החברה חייב להיות בין תו אחד ל־120 תווים.")
+        changes["name"] = name
+
+    if "logo" in payload:
+        changes["logo_b64"] = _check_logo(payload["logo"])
+
+    if not changes:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "לא נשלח מה לשנות.")
+
     client = get_user_client(token)
-    updated = (client.table("companies").update({"name": name})
-               .eq("id", _company_id(client)).execute().data)
+    try:
+        updated = (client.table("companies").update(changes)
+                   .eq("id", _company_id(client)).execute().data)
+    except Exception as exc:
+        # The same forward-compatibility problem as /api/me, but here the column
+        # is the point of the request rather than incidental, so it is reported
+        # instead of skipped.
+        if "logo_b64" in str(exc):
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "העלאת לוגו עדיין לא זמינה: יש להריץ את migrations/006_company_logo.sql.",
+            ) from exc
+        raise
     if not updated:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "אין הרשאה לשנות את שם החברה.")
     return updated[0]
