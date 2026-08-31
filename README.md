@@ -314,6 +314,25 @@ numbers only, so it is known before any outcome. The miner is generic over a
 dimension list — when the ad-platform integrations land they join it and
 nothing else changes.
 
+### What happens after an upload
+
+The rows are stored and the request ends. Training and the narrative run after
+the response, and `uploads.status` moves from `analysing` to `ready`.
+
+That reverses an earlier decision here, and the reason is a measurement that had
+not been made. Fitting all four models takes about a second, so the first
+version did it inside the request. End to end the upload took nine to
+twenty-one seconds, because roughly twenty separate round trips to Supabase sit
+around the arithmetic: the insert, reading the workspace back, a version lookup
+per target, the model writes, the run, the findings, the sentences. Timing the
+arithmetic alone gave the wrong answer.
+
+The read is now taken once and handed to both steps, the version lookup is one
+query instead of four, and the response arrives in one to seven seconds with the
+dashboard already correct. The models and the narrative land a few seconds
+later, and the interface says so instead of leaving a disabled button to be read
+as a hang — which is how it was read.
+
 ## Models
 
 Each company's models are fitted on that company's rows, at upload time. All

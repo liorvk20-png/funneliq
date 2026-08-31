@@ -1892,7 +1892,7 @@ const COLUMN_DOCS = [
 
 const UPLOAD_STATUS = {
   ready:     '<span class="badge pos">נשמר</span>',
-  analysing: '<span class="badge mute">בעיבוד</span>',
+  analysing: '<span class="badge brand">מתאמן…</span>',
   pending:   '<span class="badge mute">ממתין</span>',
   failed:    '<span class="badge neg">נכשל</span>',
 };
@@ -2404,12 +2404,46 @@ function wireUpload(){
     return data;
   }
 
+  /* Training and the narrative run after the response, so the upload sits in
+     `analysing` for a few seconds. Polling `/api/me` is enough to notice, and
+     it stops on its own rather than running for the life of the tab. */
+  async function watchAnalysis(uploadId){
+    for(let attempt = 0; attempt < 20; attempt++){
+      await new Promise(r => setTimeout(r, 2000));
+      if(currentPage() !== "upload") return;
+      let me;
+      try{ me = await api("/api/me"); }catch{ return; }
+      const upload = (me.uploads || []).find(u => u.id === uploadId);
+      if(!upload || upload.status === "analysing") continue;
+      ME = me;
+      if(currentPage() === "upload"){
+        const report = $("upReport") ? $("upReport").innerHTML : "";
+        $("pageBody").innerHTML = PAGES.upload();
+        wireUpload();
+        if(report) $("upReport").innerHTML = report;
+      }
+      toast(upload.status === "ready" ? "pos" : "warn",
+            upload.status === "ready"
+              ? "הניתוח הושלם — המודלים והתובנות מעודכנים."
+              : "השורות נשמרו, אבל האימון נכשל. הנתונים עצמם תקינים.");
+      return;
+    }
+  }
+
   function renderReport(r, saved){
     const list = (items) => `<ul>${items.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`;
     let html = "";
     if(saved){
       html += `<div class="callout pos"><h3>נשמר בהצלחה</h3>
-        ${num(r.rows)} שורות נוספו לחודש ${esc(r.period)}.</div>`;
+        ${num(r.rows)} שורות נוספו לחודש ${esc(r.period)}.
+        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+          <a class="btn btn-primary btn-sm" href="#/data">לנתונים שלי</a>
+          <a class="btn btn-secondary btn-sm" href="#/home">לדף הבית</a>
+        </div></div>
+      <div class="callout brand" style="display:flex;gap:10px;align-items:center">
+        <span class="spinner" aria-hidden="true"></span>
+        המודלים והתובנות מתאמנים ברקע על כל החודשים שהעלית. הנתונים עצמם
+        כבר זמינים בכל העמודים.</div>`;
     }else if(r.ok){
       html += `<div class="callout pos"><h3>הקובץ תקין</h3>
         נמצאו ${num(r.rows)} שורות ו־${num(r.columns.length)} עמודות. אפשר לשמור.</div>`;
@@ -2460,27 +2494,44 @@ function wireUpload(){
   };
 
   $("upSave").onclick = async () => {
-    if(!verified) return;
-    const btn = $("upSave"); btn.disabled = true; btn.textContent = "שומר…";
+    if(!verified || !chosen) return;
+    const btn = $("upSave");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> שומר…';
+    // The save is several seconds even when everything works, so it says so
+    // rather than leaving a disabled button to be read as a hang. That is what
+    // it was read as, and reasonably.
+    $("upReport").innerHTML = `<div class="callout brand">
+      שומרים את השורות. זה לוקח כמה שניות — אל תסגור את החלון.</div>`;
     try{
       const r = await send("/api/uploads", { period: monthValue("upPeriod") });
       if(r.failed){ renderReport(r, false); return; }
-      // The whole product changes shape the moment data exists, so both
-      // payloads are refetched rather than patched. A stale INSIGHTS here is
-      // exactly what would leave the empty screen showing over a full workspace.
+
+      // The rows exist now, so the rest of the product is already correct.
       [ME, INSIGHTS] = await Promise.all([api("/api/me"), api("/api/insights")]);
-      render();
-      renderReport(r, true);
-      const useful = (r.models || []).filter(m => m.useful).length;
-      toast("pos", useful
-        ? `נשמרו ${nf.format(r.rows)} שורות, ו־${useful} מודלים אומנו מחדש על הנתונים שלך.`
-        : `נשמרו ${nf.format(r.rows)} שורות.`);
+      toast("pos", `נשמרו ${nf.format(r.rows)} שורות לחודש ${esc(r.period)}.`);
+
+      // Deliberately not render(): that rebuilds the whole page from scratch,
+      // which wiped the form mid-flow -- the chosen file vanished, the report
+      // was written back into a fresh DOM, and the new save button arrived
+      // disabled from the markup and was never re-enabled. It looked exactly
+      // like a hang. The page is rebuilt only if the person is still on it.
+      if(currentPage() === "upload"){
+        $("pageBody").innerHTML = PAGES.upload();
+        wireUpload();
+        renderReport(r, true);
+        watchAnalysis(r.uploadId);
+      }
     }catch(e){
       if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
       $("upReport").innerHTML = `<div class="callout neg">${esc(e.message)}</div>`;
     }finally{
       const save = $("upSave");
-      if(save) save.textContent = "שמור את החודש הזה";
+      if(save){
+        // Both, always. Restoring only the label left the button dead.
+        save.disabled = !verified || !chosen;
+        save.textContent = "שמור את החודש הזה";
+      }
     }
   };
 

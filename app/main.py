@@ -15,6 +15,7 @@ from functools import lru_cache  # noqa: E402
 
 import pandas as pd  # noqa: E402
 from fastapi import (  # noqa: E402
+    BackgroundTasks,
     Depends,
     FastAPI,
     File,
@@ -841,6 +842,7 @@ def preview_upload(
 
 @app.post("/api/uploads")
 def create_upload(
+    background: BackgroundTasks,
     file: UploadFile = File(...),
     period: str = Form(...),
     mapping: str | None = Form(default=None),
@@ -891,8 +893,8 @@ def create_upload(
 
     try:
         records = to_records(clean, company_id, upload["id"])
-        for i in range(0, len(records), 500):
-            client.table("funnel_records").insert(records[i:i + 500]).execute()
+        for i in range(0, len(records), 1000):
+            client.table("funnel_records").insert(records[i:i + 1000]).execute()
     except Exception as exc:
         # A half-written month left marked "ready" would be presented as a
         # complete picture. Recording the failure, and removing whatever did
@@ -906,14 +908,54 @@ def create_upload(
             "השמירה נכשלה באמצע והשורות שכן נשמרו הוסרו. אפשר לנסות שוב.",
         ) from exc
 
-    client.table("uploads").update({"status": "ready"}).eq("id", upload["id"]).execute()
-    models = _retrain(client, company_id, upload["id"])
-    narrative = _analyse(client, company_id, upload["id"], month.isoformat())
+    # The rows are stored, so the dashboard is already correct and the request
+    # can end. Training and the narrative run after the response.
+    #
+    # This reverses an earlier decision, and the reason is a measurement I had
+    # not made. Fitting the models takes about a second; the upload took nine
+    # to twenty-one, because roughly twenty separate round trips to Supabase
+    # sit around the arithmetic. Timing only the arithmetic gave the wrong
+    # answer. `uploads.status` has carried 'analysing' since 002 for exactly
+    # this, so nothing new is needed to describe the in-between state.
+    background.add_task(_finish_upload, token, company_id,
+                        upload["id"], month.isoformat())
     return {"uploadId": upload["id"], "period": month.isoformat(),
-            "models": models, "narrative": narrative, **report.as_dict()}
+            "status": "analysing", **report.as_dict()}
 
 
-def _analyse(client, company_id: str, upload_id: str, period: str) -> list[str]:
+def _finish_upload(token: str, company_id: str, upload_id: str, period: str) -> None:
+    """
+    Everything the person does not have to wait for.
+
+    A fresh client, because the request's one is gone by now, and the same
+    user token, so this keeps running under the caller's own RLS rather than
+    quietly escalating to the service key on a background thread.
+
+    The workspace is read once and handed to both steps. Training needs every
+    month, the narrative needs this month and the one before it, and each used
+    to fetch its own copy.
+    """
+    client = get_user_client(token)
+    try:
+        all_rows = _fetch_all(client, "*")
+        _retrain(client, company_id, upload_id, all_rows)
+        _analyse(client, company_id, upload_id, period, all_rows)
+        client.table("uploads").update({"status": "ready"}).eq("id", upload_id).execute()
+    except Exception as exc:
+        # The rows are already stored and every descriptive panel works without
+        # a model. The upload is marked so the interface can say what is
+        # missing rather than showing a workspace that looks complete.
+        log.exception("post-upload work failed for company %s", company_id)
+        try:
+            client.table("uploads").update(
+                {"status": "failed", "error": str(exc)[:500]}
+            ).eq("id", upload_id).execute()
+        except Exception:
+            log.exception("could not even record the failure")
+
+
+def _analyse(client, company_id: str, upload_id: str, period: str,
+             all_rows: list[dict] | None = None) -> list[str]:
     """
     Compare the month just uploaded against the one before it, and store the
     result as a run.
@@ -927,10 +969,11 @@ def _analyse(client, company_id: str, upload_id: str, period: str) -> list[str]:
                    .order("period", desc=True).limit(2).execute().data)
         previous = next((u for u in uploads if u["id"] != upload_id), None)
 
-        current_rows = client.table("funnel_records").select("*").eq(
-            "upload_id", upload_id).execute().data
-        baseline_rows = (client.table("funnel_records").select("*").eq(
-            "upload_id", previous["id"]).execute().data if previous else [])
+        if all_rows is None:
+            all_rows = _fetch_all(client, "*")
+        current_rows = [r for r in all_rows if r.get("upload_id") == upload_id]
+        baseline_rows = ([r for r in all_rows if r.get("upload_id") == previous["id"]]
+                         if previous else [])
 
         result = analyse(current_rows, baseline_rows,
                          current_period=period,
@@ -943,7 +986,8 @@ def _analyse(client, company_id: str, upload_id: str, period: str) -> list[str]:
         return []
 
 
-def _retrain(client, company_id: str, upload_id: str | None) -> list[dict]:
+def _retrain(client, company_id: str, upload_id: str | None,
+             rows: list[dict] | None = None) -> list[dict]:
     """
     Fit this company's models on everything it has uploaded, not just the new
     month, and file the result.
@@ -959,22 +1003,26 @@ def _retrain(client, company_id: str, upload_id: str | None) -> list[dict]:
     month's data because a model would not fit would be the wrong trade.
     """
     try:
-        rows = _fetch_all(client, "*")
+        if rows is None:
+            rows = _fetch_all(client, "*")
         trained = train(rows)
     except Exception:
         log.exception("training failed for company %s", company_id)
         return []
 
+    latest: dict[str, int] = {}
+    for row in (client.table("model_registry").select("target,version")
+                .execute().data):
+        target = row["target"]
+        latest[target] = max(latest.get(target, 0), row["version"])
+
     out = []
     for model in trained:
-        previous = (client.table("model_registry").select("version")
-                    .eq("target", model.target).order("version", desc=True)
-                    .limit(1).execute().data)
         client.table("model_registry").insert({
             "company_id": company_id,
             "upload_id": upload_id,
             "target": model.target,
-            "version": (previous[0]["version"] + 1) if previous else 1,
+            "version": latest.get(model.target, 0) + 1,
             "trained_rows": model.rows,
             "metrics": {"error": model.score, "baseline": model.baseline,
                         "betterByPct": model.better_by_pct, "kind": model.kind},
@@ -1165,7 +1213,8 @@ def rename_company(payload: dict, token: str = Depends(get_current_user_token)):
 
 
 @app.delete("/api/uploads/{upload_id}")
-def delete_upload(upload_id: str, token: str = Depends(get_current_user_token)):
+def delete_upload(upload_id: str, background: BackgroundTasks,
+                  token: str = Depends(get_current_user_token)):
     """
     Undo one month.
 
@@ -1184,8 +1233,8 @@ def delete_upload(upload_id: str, token: str = Depends(get_current_user_token)):
     # would keep predicting from a month the company deliberately withdrew.
     company_id = _company_id(client)
     client.table("model_registry").delete().eq("company_id", company_id).execute()
-    models = _retrain(client, company_id, None)
-    return {"deleted": upload_id, "rowsRemoved": len(removed.data), "models": models}
+    background.add_task(_retrain, get_user_client(token), company_id, None)
+    return {"deleted": upload_id, "rowsRemoved": len(removed.data)}
 
 
 # Mounted LAST on purpose: a mount at "/" catches every path the routes above
