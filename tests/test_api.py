@@ -641,3 +641,50 @@ def test_before_and_after_are_shown_side_by_side(dashboard):
     """A percentage on its own does not say what it is a percentage of."""
     assert "function comparison(" in dashboard
     assert "compare-side" in dashboard and "is-after" in dashboard
+
+
+# --------------------------------------------- one voice across the product
+# The reader is an organisation. Several people from the same company open this,
+# each with a different job, so nothing addresses one of them personally and
+# nothing assumes which one is looking.
+SECOND_PERSON = [
+    "שתעלה", "תראה לך", "אתה מוציא", "שלך תראה", "תדע", "תסגור",
+    "אנחנו מעדיפים", "כמה כסף נשאר", "בכיס",
+]
+
+
+@pytest.mark.parametrize("phrase", SECOND_PERSON)
+def test_the_product_addresses_an_organisation(dashboard, phrase):
+    import re
+    script = dashboard.rsplit("<script>", 1)[1]
+    code = re.sub(r"/\*.*?\*/", "", script, flags=re.S)
+    code = re.sub(r"(?m)//.*$", "", code)
+    assert phrase not in code, f"{phrase!r} speaks to one person"
+
+
+@pytest.mark.parametrize("term_and_key", [
+    ("ROAS", "roas"), ("CPL", "cost_per_lead"), ("CAC", "cost_per_close"),
+    ("LTV", "ltv_months"), ("לידים", "leads"), ("המרות", "closed"),
+])
+def test_the_industry_term_is_used_and_defined(dashboard, term_and_key):
+    """
+    A media buyer knows the acronym and a finance lead may not, and both open
+    the same dashboard — so the term is used and its definition sits beside it.
+    """
+    label, key = term_and_key
+    glossary = dashboard.split("const GLOSSARY = {")[1].split("\n};")[0]
+    entry = glossary.split(f"{key}: {{")[1].split("},")[0]
+    assert label in entry, f"{key} does not use the term {label!r}"
+    assert "explain" in entry and len(entry.split("explain")[1]) > 30
+
+
+def test_every_page_opens_the_same_way(dashboard):
+    """
+    One header component, so no page invents its own heading style and none can
+    drift from the sidebar label that led to it.
+    """
+    import re
+    for page in PAGE_KEYS:
+        body = dashboard.split(f"PAGES.{page} = ")[1].split("\n};")[0]
+        assert re.search(rf'pageHead\("{page}"', body), (
+            f"PAGES.{page} builds its own header instead of using pageHead")

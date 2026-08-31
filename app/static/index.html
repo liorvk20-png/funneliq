@@ -1388,10 +1388,10 @@ const emptyState = (what) => `
         <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
         <path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/></svg>
     </div>
-    <h2>אין עדיין נתונים ${what ? "ל" + what : ""}</h2>
-    <p>סביבת העבודה של החברה שלך ריקה. ברגע שתעלה קובץ קמפיינים ראשון,
-       המערכת תנתח אותו ותמלא את כל העמודים האלה.</p>
-    <p style="margin-top:20px"><a class="btn btn-primary" href="#/upload">להעלאת הקובץ הראשון ←</a></p>
+    <h2>טרם יובאו נתונים${what ? " ל" + what : ""}</h2>
+    <p>חשבון הארגון ריק. לאחר ייבוא קובץ הביצועים הראשון, המערכת תחשב את
+       מדדי הליבה, תבנה את משפך ההמרה ותפיק המלצות אופטימיזציה.</p>
+    <p style="margin-top:20px"><a class="btn btn-primary" href="#/upload">לייבוא הקובץ הראשון ←</a></p>
   </div>`;
 
 /* --------------------------------------------------------------- widgets */
@@ -1630,32 +1630,31 @@ PAGES.advice = () => {
 };
 
 PAGES.predict = () => {
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">תחזיות</h1>
-    <p>בחר קמפיין, וראה מה צפוי לקרות איתו לפי מה שקרה עם קמפיינים דומים שלך.</p></div>`;
+  const head = pageHead("predict");
   if(INSIGHTS.empty) return head + emptyState("חיזוי");
 
   return head + `<div id="modelCard"></div>
   <section class="card">
-    <h2>בחר קמפיין</h2>
-    <p class="sub">אפשר לצמצם לפי איך שהקמפיין הצליח, לא רק לפי כמה הוא עלה.</p>
+    <h2>בחירת קמפיין</h2>
+    <p class="sub">סינון לפי ביצועים ולא רק לפי עלות.</p>
     <div class="filters">
-      <div><label for="fTier">גודל תקציב</label>
+      <div><label for="fTier">רמת תקציב</label>
         <select id="fTier"><option value="">הכול</option>
-          <option value="Low">קטן</option><option value="Mid">בינוני</option>
-          <option value="High">גדול</option></select></div>
-      <div><label for="fClose">אחוז סגירה</label>
+          <option value="Low">נמוכה</option><option value="Mid">בינונית</option>
+          <option value="High">גבוהה</option></select></div>
+      <div><label for="fClose">שיעור המרה</label>
         <select id="fClose"><option value="">הכול</option>
           <option value="0-5">עד 5%</option><option value="5-15">5%–15%</option>
           <option value="15-30">15%–30%</option><option value="30-100">מעל 30%</option></select></div>
-      <div><label for="fCpl">עלות לפנייה</label>
+      <div><label for="fCpl">CPL</label>
         <select id="fCpl"><option value="">הכול</option>
           <option value="0-50">עד ₪50</option><option value="50-100">₪50–₪100</option>
           <option value="100-200">₪100–₪200</option><option value="200-99999">מעל ₪200</option></select></div>
-      <div><label for="fAns">אחוז שעונים</label>
+      <div><label for="fAns">שיעור מענה</label>
         <select id="fAns"><option value="">הכול</option>
           <option value="0-40">עד 40%</option><option value="40-60">40%–60%</option>
           <option value="60-100">מעל 60%</option></select></div>
-      <div><label for="fCalls">שיחות עד סגירה</label>
+      <div><label for="fCalls">מגעים עד המרה</label>
         <select id="fCalls"><option value="">הכול</option>
           <option value="0-2">עד 2</option><option value="3-4">3–4</option>
           <option value="5-99">5 ומעלה</option></select></div>
@@ -1692,30 +1691,30 @@ async function renderModelCard(){
 
   if(!data.models.length){
     box.innerHTML = `<section class="card">
-      <h2>עוד אין מספיק נתונים לתחזית</h2>
-      <p class="sub">כדי לחזות משהו על קמפיין חדש צריך לראות לפחות
-        ${num(data.minRows)} קמפיינים קודמים שלך. עם פחות מזה כל תחזית תהיה
-        ניחוש, ואנחנו מעדיפים לא להציג ניחוש.</p>
-      <a class="btn btn-primary" href="#/upload">להעלאת עוד נתונים</a></section>`;
+      <h2>אין די היסטוריה לאומדן</h2>
+      <p class="sub">הפקת אומדן ברמת הקמפיין מחייבת לפחות ${num(data.minRows)}
+        קמפיינים בהיסטוריית החשבון. מתחת לסף זה האומדן אינו יציב, ולכן אינו
+        מוצג.</p>
+      <a class="btn btn-primary" href="#/upload">לייבוא נתונים נוספים</a></section>`;
     return;
   }
 
   const usable = data.models.filter(m => m.useful);
   const rows = Math.max(...data.models.map(m => m.trainedRows));
   box.innerHTML = `<section class="card">
-    <h2>כמה אפשר לסמוך על התחזיות</h2>
+    <h2>מהימנות האומדנים</h2>
     <p class="sub">${usable.length
-      ? `למדנו מ־${num(rows)} הקמפיינים שהעלית, ואנחנו מציגים רק תחזיות
-         שהוכיחו את עצמן על הנתונים שלך.`
-      : `למדנו מ־${num(rows)} הקמפיינים שהעלית, אבל עדיין לא מצאנו דפוס
-         מספיק ברור כדי לחזות. זה בדרך כלל משתפר עם עוד חודשים.`}</p>
+      ? `האומדנים נגזרים מ־${num(rows)} הקמפיינים בהיסטוריית החשבון. מוצגים רק
+         אומדנים שנמצאו יציבים על נתוני הארגון עצמו.`
+      : `נבחנו ${num(rows)} קמפיינים בהיסטוריית החשבון, ולא נמצא דפוס יציב דיו
+         להפקת אומדן. ייבוא תקופות נוספות משפר זאת.`}</p>
     ${usable.length ? `<div class="callout pos">
-      ${usable.map(m => esc(TARGET_LABEL[m.target] || m.target)).join(" · ")}
-      — התחזיות האלה עקביות מספיק כדי להציג.</div>` : ""}
+      אומדנים זמינים: ${usable.map(m =>
+        esc(TARGET_LABEL[m.target] || m.target)).join(" · ")}</div>` : ""}
     ${usable.length < data.models.length ? `<p class="note">
-      על ${data.models.filter(m => !m.useful).map(m =>
-        esc(TARGET_LABEL[m.target] || m.target)).join(" ו")}
-      אנחנו לא מציגים תחזית — מה שראינו עד עכשיו לא מספיק עקבי.</p>` : ""}
+      לא מוצג אומדן עבור ${data.models.filter(m => !m.useful).map(m =>
+        esc(TARGET_LABEL[m.target] || m.target)).join(", ")} — הביצועים
+      ההיסטוריים אינם עקביים דיים.</p>` : ""}
   </section>`;
 }
 
@@ -1876,18 +1875,18 @@ function comparison(before, after, gainPct){
 
 PAGES.upload = () => {
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">העלאת נתונים</h1>
-    <p>העלה קובץ CSV של קמפיינים לחודש מסוים. המערכת בודקת אותו לפני השמירה
-       ומראה לך בדיוק מה נמצא בו — שום דבר לא נשמר עד שתאשר.</p></div>`;
+  const head = pageHead("upload");
 
   const form = `<section class="card">
-    <h2>קובץ חדש</h2>
-    <p class="sub">כל חודש נשמר בנפרד, כך שאפשר להשוות בין חודשים ולבטל חודש בלי לגעת באחרים.</p>
+    <h2>ייבוא תקופה חדשה</h2>
+    <p class="sub">כל תקופה נשמרת בנפרד, כדי לאפשר השוואה בין תקופות והסרה של
+       תקופה בודדת ללא השפעה על השאר. הקובץ נבדק לפני השמירה, ולא נשמר דבר עד
+       לאישור.</p>
 
     <div class="field" style="max-width:260px">
-      <label id="upPeriodLabel">החודש שהנתונים מתארים</label>
+      <label id="upPeriodLabel">התקופה שהנתונים מתארים</label>
       ${monthPicker("upPeriod", thisMonth)}
-      <p class="hint">חודשים עתידיים חסומים — אין להם עדיין נתונים.</p>
+      <p class="hint">תקופות עתידיות חסומות.</p>
     </div>
 
     <div class="drop" id="drop" role="button" tabindex="0" aria-describedby="dropHint">
@@ -1897,25 +1896,24 @@ PAGES.upload = () => {
           <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
           <path d="M14 3v5h5"/><path d="M12 18v-6M9.5 14.5 12 12l2.5 2.5"/></svg>
       </div>
-      <div>גרור לכאן קובץ CSV, או לחץ כדי לבחור</div>
+      <div>גרירת קובץ CSV לכאן, או לחיצה לבחירה</div>
       <div class="name" id="dropName"></div>
     </div>
-    <p class="hint" id="dropHint">עד 10MB. הקובץ צריך להכיל את 19 העמודות שברשימה למטה.</p>
+    <p class="hint" id="dropHint">עד 10MB. על הקובץ להכיל את 19 השדות המפורטים למטה.</p>
     <input id="upFile" type="file" accept=".csv,text/csv" class="hidden">
 
     <div class="row-actions">
-      <button class="btn btn-primary" id="upCheck" disabled>בדוק את הקובץ</button>
-      <button class="btn btn-primary" id="upSave" disabled style="background:var(--pos)">שמור את החודש הזה</button>
+      <button class="btn btn-primary" id="upCheck" disabled>בדיקת הקובץ</button>
+      <button class="btn btn-primary" id="upSave" disabled style="background:var(--pos)">שמירת התקופה</button>
     </div>
     <div id="upReport"></div>
   </section>`;
 
   const cols = `<section class="card">
-    <h2>מה הקובץ צריך להכיל</h2>
-    <p class="sub">אין צורך לשנות שמות עמודות. המערכת מזהה לבד גם
-       "תקציב", גם "Ad Spend" וגם "budget", בעברית ובאנגלית. מה שהיא לא תזהה
-       בוודאות — היא תשאל אותך עליו ותראה לך דוגמאות מהתוכן, במקום לנחש.
-       הרשימה כאן היא כדי שתדע איזה מידע צריך להיות בקובץ.</p>
+    <h2>שדות נדרשים</h2>
+    <p class="sub">אין צורך להתאים שמות עמודות. המערכת מזהה אוטומטית "תקציב",
+       "Ad Spend" ו־"budget" כאותו שדה, בעברית ובאנגלית. שדה שלא יזוהה בוודאות
+       יוצג לאישור, לצד דוגמאות מהתוכן שלו. הרשימה כאן היא לצורך הכנת הקובץ.</p>
     <div class="table-wrap"><table><thead><tr>
       <th>מה צריך</th><th>איך אולי קוראים לזה אצלך</th><th>סוג</th><th>דוגמה</th>
     </tr></thead><tbody>
@@ -1969,7 +1967,7 @@ function uploadHistoryCard(){
     <td><button class="btn btn-danger btn-sm" data-del="${u.id}" data-period="${u.period}">מחק חודש</button></td>
   </tr>`).join("");
 
-  return `<section class="card"><h2>היסטוריית העלאות</h2>` + (rows
+  return `<section class="card"><h2>היסטוריית ייבוא</h2>` + (rows
     ? `<p class="sub">מחיקת חודש מסירה גם את השורות שלו. אין עריכה של שורות קיימות —
          תיקון של חודש נעשה במחיקה והעלאה מחדש, כך שנשאר תיעוד של שתי הפעולות.</p>
        <div class="table-wrap"><table><thead><tr>
@@ -2569,7 +2567,7 @@ function wireUpload(){
       if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
       $("upReport").innerHTML = `<div class="callout neg">${esc(e.message)}</div>`;
     }finally{
-      btn.disabled = false; btn.textContent = "בדוק את הקובץ";
+      btn.disabled = false; btn.textContent = "בדיקת הקובץ";
     }
   };
 
@@ -2582,7 +2580,8 @@ function wireUpload(){
     // rather than leaving a disabled button to be read as a hang. That is what
     // it was read as, and reasonably.
     $("upReport").innerHTML = `<div class="callout brand">
-      שומרים את השורות. זה לוקח כמה שניות — אל תסגור את החלון.</div>`;
+      מייבאים את השורות. התהליך אורך מספר שניות — יש להשאיר את החלון
+      פתוח עד לסיומו.</div>`;
     try{
       const r = await send("/api/uploads", { period: monthValue("upPeriod") });
       if(r.failed){ renderReport(r, false); return; }
@@ -2610,7 +2609,7 @@ function wireUpload(){
       if(save){
         // Both, always. Restoring only the label left the button dead.
         save.disabled = !verified || !chosen;
-        save.textContent = "שמור את החודש הזה";
+        save.textContent = "שמירת התקופה";
       }
     }
   };
@@ -2687,8 +2686,7 @@ let PROFILE_TAB = "account";
 let SEATS = null;
 
 PAGES.profile = () => {
-  const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">פרופיל והגדרות</h1>
-    <p>פרטי החשבון, מי עוד רואה את הנתונים, ומה המערכת מיידעת אותך עליו.</p></div>`;
+  const head = pageHead("profile");
 
   const nav = `<div class="segmented" role="tablist" aria-label="הגדרות">
     ${PROFILE_TABS.map(([key, label]) => `
@@ -3163,9 +3161,9 @@ function renderPrediction(d){
       // reads as a prediction, and this one is not.
       return `<div class="tile">
         <div class="k">${esc(label)}</div>
-        <div class="v" style="font-size:var(--t-lg);color:var(--text-3)">אין תחזית</div>
-        <div class="n">עוד לא ראינו מספיק קמפיינים דומים כדי לומר משהו על זה.</div>
-        ${was ? `<div class="actual">מה שקרה בפועל: ${was}</div>` : ""}</div>`;
+        <div class="v" style="font-size:var(--t-lg);color:var(--text-3)">אין אומדן</div>
+        <div class="n">אין די היסטוריה יציבה עבור מדד זה.</div>
+        ${was ? `<div class="actual">בפועל: ${was}</div>` : ""}</div>`;
     }
     const value = p.kind === "regression"
       ? (target === "ltv_months"
@@ -3175,12 +3173,12 @@ function renderPrediction(d){
     return `<div class="tile ${TINTS[target] || "t1"}">
       <div class="k">${esc(label)}</div>
       <div class="v">${value}</div>
-      ${was ? `<div class="actual">מה שקרה בפועל: ${was}</div>` : ""}</div>`;
+      ${was ? `<div class="actual">בפועל: ${was}</div>` : ""}</div>`;
   };
 
   $("predOut").innerHTML = `<div class="pred">${shown.map(card).join("")}</div>
-    <p class="note">התחזיות מבוססות על מה שקרה בקמפיינים דומים שלך.
-      ${term("ltv_months").explain}</p>`;
+    <p class="note">האומדנים נגזרים מביצועי קמפיינים בעלי מאפיינים דומים
+      בהיסטוריית החשבון.</p>`;
 }
 
 
