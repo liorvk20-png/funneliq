@@ -51,7 +51,8 @@ analysis/       one script per work package, each reproducible on its own
 models/         trained artifacts, committed so a deploy need not retrain
 scripts/        CSV loader
 migrations/     schema history; 002 turns one company into an engine anyone can join,
-                003 backfills workspaces for accounts that predate the trigger
+                003 backfills workspaces for accounts that predate the trigger,
+                004 lets a company rename itself, 005 stores its own models
 ```
 
 ## Running it locally
@@ -85,6 +86,32 @@ python analysis/package4_super_customer.py  # Package 4  (tuning, a few minutes)
 python analysis/package5_followup.py        # Package 5
 python analysis/package6_budget.py          # Package 6
 ```
+
+## Models
+
+Each company's models are fitted on that company's rows, at upload time. All
+four take under five seconds even at the 50,000-row cap, which is what makes
+this a step inside the request rather than a background job with a queue and a
+status to poll.
+
+What matters more than accuracy is honesty about accuracy. Every model is
+scored on rows it did not see and compared against the laziest possible
+alternative — predicting the average — on the same rows, and that comparison
+travels with it into the interface. A model that does not beat guessing is
+stored, reported, and never used: a prediction no better than the average is
+not a weak answer to caveat, it is an answer we do not have. Below ten rows
+nothing is fitted at all, because there the measurement of whether a model
+works is itself unreliable.
+
+Measured on the reference data, holding out a quarter: ten rows beat guessing
+by 4%, twenty-five by 45%, fifty by 69%, a hundred by 74%. The classifiers take
+longer to become worth anything than the regressors do — on sixty rows they
+lose to the base rate — which is why the gate is a measurement per company and
+not a row-count threshold.
+
+The four downstream outcomes (`upsell`, `referred`, `cumulative_profit`,
+`ltv_months`) are removed from the feature set by construction, so a new target
+cannot quietly reintroduce one.
 
 ## Getting data in
 

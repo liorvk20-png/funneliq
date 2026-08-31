@@ -10,7 +10,8 @@ from app.main import app
 
 client = TestClient(app)
 
-GATED = ["/api/insights", "/api/funnel-records/sample", "/api/predict/1", "/api/me"]
+GATED = ["/api/insights", "/api/funnel-records/sample", "/api/predict/1",
+         "/api/me", "/api/models"]
 
 
 def test_health_is_public():
