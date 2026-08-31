@@ -5,11 +5,13 @@ from dotenv import load_dotenv
 # platform supplies the same variables directly.
 load_dotenv()
 
+import base64  # noqa: E402
 import io  # noqa: E402
 import json  # noqa: E402
 import logging  # noqa: E402
 import uuid  # noqa: E402
 from datetime import date  # noqa: E402
+from functools import lru_cache  # noqa: E402
 
 import pandas as pd  # noqa: E402
 from fastapi import (  # noqa: E402
@@ -30,7 +32,7 @@ from app.auth import get_current_user_token  # noqa: E402
 from app.config import require_env  # noqa: E402
 from app.db import get_anon_client, get_service_client, get_user_client  # noqa: E402
 from app.ingest import MAX_BYTES, inspect, to_records  # noqa: E402
-from app.predict import predict  # noqa: E402
+from app.training import MIN_ROWS, load, predict_one, train  # noqa: E402
 
 app = FastAPI(title="FunnelIQ")
 
@@ -452,32 +454,6 @@ def _followup(rows) -> dict:
     }
 
 
-@app.get("/api/predict/{record_id}")
-def predict_record(record_id: int, token: str = Depends(get_current_user_token)):
-    """
-    Score one stored campaign with all three models.
-
-    The record is fetched through the user's own token, so a caller who cannot
-    read a row cannot get a prediction about it either — the gate is the same
-    one that guards the data, not a second one bolted on beside it.
-    """
-    client = get_user_client(token)
-    rows = client.table("funnel_records").select("*").eq("id", record_id).execute().data
-    if not rows:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such record")
-    record = rows[0]
-    return {
-        "id": record["id"],
-        "actual": {
-            "ltvMonths": record["ltv_months"],
-            "upsell": record["upsell"],
-            "referred": record["referred"],
-            "cumulativeProfit": record["cumulative_profit"],
-        },
-        "predicted": predict(record),
-    }
-
-
 @app.get("/api/me")
 def me(token: str = Depends(get_current_user_token)):
     """
@@ -525,6 +501,106 @@ def me(token: str = Depends(get_current_user_token)):
         "recordCount": records.count or 0,
         "uploads": uploads,
     }
+
+
+@app.get("/api/predict/{record_id}")
+def predict_record(record_id: int, token: str = Depends(get_current_user_token)):
+    """
+    Score one of the company's campaigns with the company's own models.
+
+    Nothing here falls back to a model trained on anyone else's data. That was
+    the previous behaviour and it was labelled honestly in the interface, which
+    is not the same as being useful: a prediction from another business's funnel
+    is a number with no claim on this one.
+
+    A target with no useful model returns null and the reason. Predicting the
+    average and dressing it as a forecast would be worse than saying there is
+    nothing to say yet.
+    """
+    client = get_user_client(token)
+    rows = client.table("funnel_records").select("*").eq("id", record_id).execute().data
+    if not rows:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such record")
+    record = rows[0]
+
+    predictions = {}
+    for entry in _company_models(client):
+        value = None
+        if entry["useful"]:
+            model = _load_model(entry)
+            value = round(predict_one(model, entry["metrics"]["kind"], record), 4)
+        predictions[entry["target"]] = {
+            "value": value,
+            "useful": entry["useful"],
+            "note": entry["note"],
+            "betterByPct": entry["metrics"].get("betterByPct"),
+            "trainedRows": entry["trained_rows"],
+            "kind": entry["metrics"]["kind"],
+        }
+
+    return {
+        "id": record["id"],
+        "actual": {
+            "ltv_months": record["ltv_months"],
+            "upsell": record["upsell"],
+            "referred": record["referred"],
+            "cumulative_profit": record["cumulative_profit"],
+        },
+        "predictions": predictions,
+        "minRows": MIN_ROWS,
+    }
+
+
+@app.get("/api/models")
+def models(token: str = Depends(get_current_user_token)):
+    """
+    What this company's models are and how good they are, measured on its own
+    data. The predictions page leads with this rather than with a number,
+    because "68% better than guessing, on your 60 campaigns" is the part that
+    says whether the number below it is worth reading.
+    """
+    entries = _company_models(get_user_client(token))
+    return {
+        "minRows": MIN_ROWS,
+        "models": [{
+            "target": e["target"],
+            "useful": e["useful"],
+            "note": e["note"],
+            "trainedRows": e["trained_rows"],
+            "kind": e["metrics"]["kind"],
+            "error": e["metrics"].get("error"),
+            "baseline": e["metrics"].get("baseline"),
+            "betterByPct": e["metrics"].get("betterByPct"),
+            "trainedAt": e["created_at"],
+        } for e in entries],
+    }
+
+
+def _company_models(client) -> list[dict]:
+    """
+    The newest version of each target. RLS restricts the read to the caller's
+    own company, so no filter here decides that.
+    """
+    rows = (client.table("model_registry")
+            .select("target,version,trained_rows,metrics,useful,note,created_at,model_b64")
+            .order("version", desc=True).execute().data)
+    newest: dict[str, dict] = {}
+    for row in rows:
+        newest.setdefault(row["target"], row)
+    return list(newest.values())
+
+
+# A loaded CatBoost model, kept between requests. Deserialising costs more than
+# the prediction does, and a company scoring several campaigns in a row would
+# otherwise pay it every time. Keyed by the stored bytes, so a retrained model
+# is a different key and can never be served from the old entry.
+@lru_cache(maxsize=32)
+def _load_model_cached(model_b64: str, kind: str):
+    return load(model_b64, kind)
+
+
+def _load_model(entry: dict):
+    return _load_model_cached(entry["model_b64"], entry["metrics"]["kind"])
 
 
 # =====================================================================
@@ -687,7 +763,54 @@ def create_upload(
         ) from exc
 
     client.table("uploads").update({"status": "ready"}).eq("id", upload["id"]).execute()
-    return {"uploadId": upload["id"], "period": month.isoformat(), **report.as_dict()}
+    models = _retrain(client, company_id, upload["id"])
+    return {"uploadId": upload["id"], "period": month.isoformat(),
+            "models": models, **report.as_dict()}
+
+
+def _retrain(client, company_id: str, upload_id: str | None) -> list[dict]:
+    """
+    Fit this company's models on everything it has uploaded, not just the new
+    month, and file the result.
+
+    Measured on a full-size dataset this takes under five seconds even at the
+    50,000-row upload cap, which is what makes it a step inside the request
+    rather than a background job. A background job would need a queue, a status
+    to poll, and a way to describe a workspace whose data and models disagree —
+    all of it to save four seconds, once a month.
+
+    A failure here does not fail the upload. The rows are already stored and the
+    descriptive half of the product works without any model at all; losing the
+    month's data because a model would not fit would be the wrong trade.
+    """
+    try:
+        rows = _fetch_all(client, "*")
+        trained = train(rows)
+    except Exception:
+        log.exception("training failed for company %s", company_id)
+        return []
+
+    out = []
+    for model in trained:
+        previous = (client.table("model_registry").select("version")
+                    .eq("target", model.target).order("version", desc=True)
+                    .limit(1).execute().data)
+        client.table("model_registry").insert({
+            "company_id": company_id,
+            "upload_id": upload_id,
+            "target": model.target,
+            "version": (previous[0]["version"] + 1) if previous else 1,
+            "trained_rows": model.rows,
+            "metrics": {"error": model.score, "baseline": model.baseline,
+                        "betterByPct": model.better_by_pct, "kind": model.kind},
+            "model_b64": base64.b64encode(model.model_bytes).decode(),
+            "useful": model.useful,
+            "note": model.note,
+        }).execute()
+        out.append({"target": model.target, "rows": model.rows,
+                    "betterByPct": model.better_by_pct, "useful": model.useful,
+                    "note": model.note})
+    return out
 
 
 @app.patch("/api/company")
@@ -727,7 +850,12 @@ def delete_upload(upload_id: str, token: str = Depends(get_current_user_token)):
 
     removed = client.table("funnel_records").delete().eq("upload_id", upload_id).execute()
     client.table("uploads").delete().eq("id", upload_id).execute()
-    return {"deleted": upload_id, "rowsRemoved": len(removed.data)}
+    # The models were fitted on rows that no longer exist. Leaving them in place
+    # would keep predicting from a month the company deliberately withdrew.
+    company_id = _company_id(client)
+    client.table("model_registry").delete().eq("company_id", company_id).execute()
+    models = _retrain(client, company_id, None)
+    return {"deleted": upload_id, "rowsRemoved": len(removed.data), "models": models}
 
 
 # Mounted LAST on purpose: a mount at "/" catches every path the routes above

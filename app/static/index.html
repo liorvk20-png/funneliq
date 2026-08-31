@@ -460,12 +460,19 @@ PAGES.data = () => {
        ${missing}</section>`;
 };
 
+const TARGET_LABEL = {
+  ltv_months: "שווי לקוח בחודשים",
+  cumulative_profit: "רווח מצטבר",
+  upsell: "סיכוי למכירה נוספת",
+  referred: "סיכוי שהלקוח יפנה אחרים",
+};
+
 PAGES.predict = () => {
   const head = `<div class="page-head"><h1 id="pageTitle" tabindex="-1">תחזיות</h1>
-    <p>בחר קמפיין וקבל את מה שהמודלים חוזים עליו, לצד מה שקרה בפועל.</p></div>`;
+    <p>המודלים כאן אומנו על הנתונים של החברה שלך בלבד, ונמדדו עליהם.</p></div>`;
   if(INSIGHTS.empty) return head + emptyState("חיזוי");
 
-  return head + `<section class="card">
+  return head + `<div id="modelCard"></div><section class="card">
     <h2>סינון קמפיינים</h2>
     <p class="sub">אפשר לצמצם לפי ביצועים, לא רק לפי עלות.</p>
     <div class="filters">
@@ -499,9 +506,6 @@ PAGES.predict = () => {
           <option value="budget">התקציב הגבוה ביותר</option>
         </select></div>
     </div>
-    <div class="caveat" style="margin-bottom:18px">המודלים כרגע מאומנים על מאגר
-      התייחסות משותף, לא על הנתונים של החברה שלך. הם נותנים כיוון סביר,
-      אבל אימון ייעודי לנתונים שלך הוא השלב הבא ויהיה מדויק יותר.</div>
     <label for="recSel">קמפיין</label>
     <select id="recSel"></select>
     <p class="note" id="recCount"></p>
@@ -1092,7 +1096,7 @@ function render(){
   if(h) h.focus({ preventScroll:true });
   window.scrollTo(0, 0);
   if(page === "data" && !INSIGHTS.empty) fillSample();
-  if(page === "predict" && !INSIGHTS.empty) wirePredict();
+  if(page === "predict" && !INSIGHTS.empty){ wirePredict(); renderModelCard(); }
   if(page === "upload") wireUpload();
   if(page === "profile"){ wireUploadDeletes(); wireRename(); }
   const lo2 = $("logoutBtn2");
@@ -1177,36 +1181,103 @@ function wirePredict(){
   fill();
 }
 
+async function renderModelCard(){
+  const box = $("modelCard");
+  if(!box) return;
+  let data;
+  try{
+    data = await api("/api/models");
+  }catch(e){
+    if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
+    box.innerHTML = `<div class="card"><p class="sub">${esc(e.message)}</p></div>`;
+    return;
+  }
+
+  if(!data.models.length){
+    box.innerHTML = `<section class="card"><h2>עוד אין מספיק נתונים לאימון</h2>
+      <p class="sub">כדי לאמן מודל על הנתונים שלך צריך לפחות
+         ${num(data.minRows)} קמפיינים. מתחת לזה המודל לא מדויק יותר מלנחש
+         את הממוצע — וגם המדידה של כמה הוא מדויק אינה יציבה בכמות כזו.
+         שאר העמודים עובדים כרגיל בכל כמות.</p>
+      <p style="margin-top:16px"><a class="btnlink" href="#/upload">להעלאת עוד נתונים ←</a></p>
+    </section>`;
+    return;
+  }
+
+  // Every model leads with what it was measured against. "68% better than
+  // guessing, on your 60 campaigns" is what decides whether the number under
+  // it is worth reading; the number alone tells the person nothing.
+  const rows = data.models.map(m => {
+    const unit = m.kind === "regression"
+      ? (m.target === "ltv_months" ? " חודשים" : " ₪")
+      : "";
+    const verdict = m.useful
+      ? `<span class="pill yes">טוב ב־${m.betterByPct}% מניחוש</span>`
+      : `<span class="pill" style="background:var(--bad-soft);color:var(--bad)">לא עדיף על ניחוש</span>`;
+    return `<tr>
+      <td><strong>${esc(TARGET_LABEL[m.target] || m.target)}</strong>
+          <div class="n">${esc(m.note)}</div></td>
+      <td>${verdict}</td>
+      <td>${m.kind === "regression"
+            ? `טעות ממוצעת ${num(Math.round(m.error * 10) / 10)}${unit}`
+            : `ציון שגיאה ${num(Math.round(m.error * 1000) / 1000)}`}</td>
+      <td>${m.kind === "regression"
+            ? `ניחוש טועה ב־${num(Math.round(m.baseline * 10) / 10)}${unit}`
+            : `ניחוש: ${num(Math.round(m.baseline * 1000) / 1000)}`}</td>
+      <td>${num(m.trainedRows)}</td>
+    </tr>`;
+  }).join("");
+
+  box.innerHTML = `<section class="card">
+    <h2>המודלים של החברה שלך</h2>
+    <p class="sub">כל מודל נבדק על שורות שהוא לא ראה באימון, והושווה לתשובה
+       הפשוטה ביותר: לנחש את הממוצע. מודל שלא ניצח את ההשוואה הזו לא מוצג
+       כתחזית — תחזית שאינה טובה מהממוצע היא לא תשובה חלשה, היא תשובה שאין לנו.</p>
+    <div class="table-wrap"><table><thead><tr>
+      <th>מה נחזה</th><th>מסקנה</th><th>הדיוק שלו</th><th>הדיוק של ניחוש</th><th>אומן על</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="note">האימון מתעדכן אוטומטית בכל העלאה של חודש חדש.</p>
+  </section>`;
+}
+
 function renderPrediction(d){
-  const p = d.predicted, a = d.actual;
-  const actual = (v, suffix) => `<div class="actual">בפועל: ${v == null ? "אין נתון" : v + (suffix || "")}</div>`;
-  // The API answers in a neutral, language-free way: scoreCaveat is a string
-  // when the caveat applies and null when it does not. The wording is the
-  // interface's job, so the Hebrew lives here and not in the model layer.
-  const caveat = p.scoreCaveat
-    ? `<div class="caveat">ציון מעל 80: המודל נוטה להיות בטוח מדי בטווח הזה.
-       בפועל שיעור ההפניות אצל הקבוצה הזו נמוך בכ־8 נקודות אחוז מהציון.</div>` : "";
-  $("predOut").innerHTML = `
-    <div class="pred">
-      <div class="tile"><div class="k">שווי לקוח צפוי</div>
-        <div class="v">${num(p.ltvMonths)} חודשים</div>
-        <div class="n">טווח טעות ±${nf.format(p.ltvMarginMonths)} חודשים</div>
-        ${actual(a.ltvMonths, " חודשים")}</div>
-      <div class="tile"><div class="k">סיכוי למכירה נוספת</div>
-        <div class="v">${pct(Math.round(p.upsellProbability * 100))}</div>
-        ${actual(a.upsell == null ? null : (a.upsell ? "כן" : "לא"))}</div>
-      <div class="tile"><div class="k">ציון לקוח-על</div>
-        <div class="v">${num(p.superCustomerScore)}<span style="font-size:15px;color:var(--muted)"> / 100</span></div>
-        ${actual(a.referred == null ? null : (a.referred ? "הפנה" : "לא הפנה"))}</div>
-      <div class="tile"><div class="k">רווח מצטבר צפוי</div>
-        <div class="v">${money(p.profit)}</div>
-        <div class="n">טווח טעות ±${money(p.profitMargin)}</div>
-        ${actual(a.cumulativeProfit == null ? null : "₪" + nf.format(Math.round(a.cumulativeProfit)))}</div>
-    </div>
-    ${caveat}
-    <div class="caveat">מודל הרווח מסביר קמפיין שכבר הסתיים — הוא קורא עמודות
-      שנוצרות רק אחרי שהקמפיין רץ, ולכן אי אפשר להשתמש בו כדי לתכנן תקציב מראש.
-      לתכנון תקציב יש את <a href="#/budget">עמוד התקציב</a>.</div>`;
+  const a = d.actual;
+  const shown = Object.entries(d.predictions);
+  if(!shown.length){
+    $("predOut").innerHTML = "";
+    return;
+  }
+
+  const actualOf = {
+    ltv_months: a.ltv_months == null ? null : num(a.ltv_months) + " חודשים",
+    cumulative_profit: a.cumulative_profit == null ? null : money(a.cumulative_profit),
+    upsell: a.upsell == null ? null : (a.upsell ? "כן" : "לא"),
+    referred: a.referred == null ? null : (a.referred ? "כן" : "לא"),
+  };
+
+  const tile = ([target, p]) => {
+    const label = TARGET_LABEL[target] || target;
+    const actual = actualOf[target];
+    if(!p.useful){
+      // No number at all. A greyed-out figure with a warning beside it still
+      // reads as a prediction, and this one is not.
+      return `<div class="tile"><div class="k">${esc(label)}</div>
+        <div class="v" style="font-size:16px;color:var(--muted)">אין תחזית</div>
+        <div class="n">${esc(p.note)}</div>
+        ${actual ? `<div class="actual">בפועל: ${actual}</div>` : ""}</div>`;
+    }
+    const value = p.kind === "regression"
+      ? (target === "ltv_months"
+          ? num(Math.round(p.value * 10) / 10) + " חודשים"
+          : money(p.value))
+      : pct(Math.round(p.value * 100));
+    return `<div class="tile"><div class="k">${esc(label)}</div>
+      <div class="v">${value}</div>
+      <div class="n">טוב ב־${pct(p.betterByPct)} מניחוש · ${num(p.trainedRows)} קמפיינים</div>
+      ${actual ? `<div class="actual">בפועל: ${actual}</div>` : ""}</div>`;
+  };
+
+  $("predOut").innerHTML = `<div class="pred">${shown.map(tile).join("")}</div>`;
 }
 
 /* ------------------------------------------------------------ app entry */
