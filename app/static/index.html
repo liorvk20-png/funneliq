@@ -2,233 +2,509 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FunnelIQ — ניתוח קמפיינים</title>
+<meta name="description" content="FunnelIQ מנתח את נתוני הקמפיינים של החברה שלך, מאמן עליהם מודלים ומראה איפה התקציב עובד ואיפה הוא נשרף.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta property="og:title" content="FunnelIQ">
+<meta property="og:description" content="ניתוח קמפיינים ומודלים שמאומנים על הנתונים שלך בלבד.">
+<meta property="og:type" content="website">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap">
+<script>
+  // Runs before the stylesheet paints anything. Reading the stored choice here
+  // rather than in the main script is the difference between a dark-mode user
+  // seeing their theme and seeing a white flash on every page load.
+  try{
+    var t = localStorage.getItem("funneliq.theme");
+    if(!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", t);
+  }catch(e){ document.documentElement.setAttribute("data-theme", "light"); }
+</script>
 <style>
-/* ---------------------------------------------------------------- tokens
-   One place for every colour, radius and shadow. Changing the product's
-   look means changing these lines, not hunting through the rules below. */
+/* ═══════════════════════════════════════════════════════════ tokens
+   Every colour, size and shadow in the product is named here once. Two themes
+   are defined as the same names with different values, so nothing below this
+   block knows which theme it is drawing — that is what makes the toggle a
+   one-line change rather than a second stylesheet. */
 :root{
-  --bg:#f5f7fb;
-  --surface:#ffffff;
-  --surface-2:#fafbfe;
-  --line:#e3e7f0;
-  --line-strong:#cbd2e1;
-  --text:#151a29;
-  --muted:#5c6579;
-  --brand:#3a56e8;
-  --brand-ink:#2740c4;
-  --brand-soft:#eef1ff;
-  --good:#0b7a4b;   --good-soft:#e6f5ee;
-  --warn:#a86400;   --warn-soft:#fdf2e0;
-  --bad:#c22f42;    --bad-soft:#fdecef;
-  --r-sm:8px; --r:14px; --r-lg:20px;
-  --shadow:0 1px 2px rgba(16,24,40,.04), 0 10px 28px rgba(16,24,40,.06);
-  --shadow-sm:0 1px 2px rgba(16,24,40,.06);
-  --nav:264px;
+  color-scheme: light;
+
+  /* Neutrals, cool-leaning. Nine steps because eight is never quite enough. */
+  --n-0:#ffffff; --n-25:#fcfcfd; --n-50:#f8f9fc; --n-100:#f1f3f9;
+  --n-200:#e4e8f0; --n-300:#cfd5e2; --n-400:#9aa3b8;
+  --n-500:#6b7488; --n-600:#4a5265; --n-700:#333a4a; --n-800:#1f2534; --n-900:#12161f;
+
+  /* One confident accent. A product that uses three looks like three products. */
+  --accent-50:#eef2ff; --accent-100:#e0e7ff; --accent-300:#a5b4fc;
+  --accent:#4f46e5; --accent-600:#4338ca; --accent-700:#3730a3;
+
+  --pos-50:#ecfdf5; --pos:#059669; --pos-700:#047857;
+  --warn-50:#fffbeb; --warn:#b45309; --warn-700:#92400e;
+  --neg-50:#fef2f2; --neg:#dc2626; --neg-700:#b91c1c;
+
+  /* Roles. Components reference these, never the raw scale above. */
+  --bg:var(--n-50);
+  --surface:var(--n-0);
+  --surface-2:var(--n-25);
+  --surface-3:var(--n-100);
+  --line:var(--n-200);
+  --line-strong:var(--n-300);
+  --text:var(--n-800);
+  --text-2:var(--n-600);
+  --text-3:var(--n-500);
+  --brand:var(--accent);
+  --brand-ink:var(--accent-600);
+  --brand-soft:var(--accent-50);
+  --on-brand:#ffffff;
+
+  /* A type scale with a ratio, not fifteen arbitrary pixel values. */
+  --t-xs:12px; --t-sm:13px; --t-md:14.5px; --t-lg:16px;
+  --t-xl:19px; --t-2xl:23px; --t-3xl:29px; --t-4xl:36px;
+
+  /* Spacing on a 4px grid. */
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px;
+  --s-6:24px; --s-8:32px; --s-10:40px; --s-12:48px; --s-16:64px;
+
+  --r-xs:6px; --r-sm:9px; --r-md:12px; --r-lg:16px; --r-xl:22px; --r-full:999px;
+
+  /* Layered rather than single: a real object casts a tight contact shadow and
+     a wide soft one, and the eye reads the difference even when it cannot name it. */
+  --sh-xs:0 1px 2px rgb(16 24 40 / .05);
+  --sh-sm:0 1px 2px rgb(16 24 40 / .06), 0 1px 3px rgb(16 24 40 / .04);
+  --sh-md:0 2px 4px rgb(16 24 40 / .04), 0 8px 20px rgb(16 24 40 / .07);
+  --sh-lg:0 4px 8px rgb(16 24 40 / .04), 0 20px 44px rgb(16 24 40 / .10);
+  --ring:0 0 0 3px color-mix(in srgb, var(--brand) 28%, transparent);
+
+  --ease:cubic-bezier(.2,.7,.3,1);
+  --fast:130ms; --base:200ms;
+  --nav-w:264px;
 }
 
-*{box-sizing:border-box}
-html,body{height:100%}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#0b0e14;
+  --surface:#12161f;
+  --surface-2:#161b26;
+  --surface-3:#1d2431;
+  --line:#242c3a;
+  --line-strong:#333c4e;
+  --text:#e8ebf2;
+  --text-2:#a8b0c2;
+  --text-3:#7d8598;
+  --brand:#7c8cff;
+  --brand-ink:#93a0ff;
+  --brand-soft:#1a1f36;
+  --on-brand:#0b0e14;
+  --pos-50:#0d2620; --pos:#34d399; --pos-700:#6ee7b7;
+  --warn-50:#2a2113; --warn:#fbbf24; --warn-700:#fcd34d;
+  --neg-50:#2b1416; --neg:#f87171; --neg-700:#fca5a5;
+  --sh-xs:0 1px 2px rgb(0 0 0 / .4);
+  --sh-sm:0 1px 3px rgb(0 0 0 / .45);
+  --sh-md:0 4px 16px rgb(0 0 0 / .5);
+  --sh-lg:0 12px 40px rgb(0 0 0 / .6);
+}
+
+/* The same values, applied when the browser asks for dark and the person has
+   not overridden it. Duplicated because plain CSS has no way to share a token
+   block between two selectors; a test asserts the two stay identical. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+  color-scheme: dark;
+  --bg:#0b0e14;
+  --surface:#12161f;
+  --surface-2:#161b26;
+  --surface-3:#1d2431;
+  --line:#242c3a;
+  --line-strong:#333c4e;
+  --text:#e8ebf2;
+  --text-2:#a8b0c2;
+  --text-3:#7d8598;
+  --brand:#7c8cff;
+  --brand-ink:#93a0ff;
+  --brand-soft:#1a1f36;
+  --on-brand:#0b0e14;
+  --pos-50:#0d2620; --pos:#34d399; --pos-700:#6ee7b7;
+  --warn-50:#2a2113; --warn:#fbbf24; --warn-700:#fcd34d;
+  --neg-50:#2b1416; --neg:#f87171; --neg-700:#fca5a5;
+  --sh-xs:0 1px 2px rgb(0 0 0 / .4);
+  --sh-sm:0 1px 3px rgb(0 0 0 / .45);
+  --sh-md:0 4px 16px rgb(0 0 0 / .5);
+  --sh-lg:0 12px 40px rgb(0 0 0 / .6);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════ base */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
 body{
   margin:0;
+  min-height:100dvh;
   background:var(--bg);
   color:var(--text);
-  font:400 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI",
-       "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif;
+  font:400 var(--t-md)/1.6 "Assistant", -apple-system, BlinkMacSystemFont,
+       "Segoe UI", "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif;
   -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  font-feature-settings:"tnum" 0;
 }
-h1,h2,h3{margin:0;line-height:1.3;font-weight:700;letter-spacing:-.01em}
-h1{font-size:26px}
-h2{font-size:19px}
-h3{font-size:15px}
+h1,h2,h3,h4{margin:0;font-weight:700;line-height:1.25;letter-spacing:-.018em}
+h1{font-size:var(--t-3xl);font-weight:800}
+h2{font-size:var(--t-xl)}
+h3{font-size:var(--t-lg)}
 p{margin:0}
-a{color:var(--brand-ink)}
-:focus-visible{outline:3px solid var(--brand);outline-offset:2px;border-radius:4px}
-@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+a{color:var(--brand-ink);text-decoration-thickness:1px;text-underline-offset:2px}
+a:hover{text-decoration-color:var(--brand)}
+svg{flex:none}
+hr{border:0;border-top:1px solid var(--line);margin:var(--s-6) 0}
 
-/* Digits, currency and percentages read left-to-right even inside Hebrew
-   sentences. Without this, "₪1,240" lands with the sign on the wrong side. */
+:where(button,a,input,select,textarea,[tabindex]):focus-visible{
+  outline:2px solid var(--brand);outline-offset:2px;border-radius:var(--r-xs);
+}
+::selection{background:var(--brand-soft);color:var(--brand-ink)}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}
+
+/* Digits and currency read left-to-right inside Hebrew sentences. Without the
+   isolation "₪1,240" scatters its symbols to the wrong side of the number. */
 bdi{unicode-bidi:isolate}
-.num{font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums lining-nums;letter-spacing:0}
 
 .hidden{display:none!important}
-.skip{
-  position:absolute;inset-inline-start:-9999px;top:8px;z-index:99;
-  background:var(--brand);color:#fff;padding:10px 16px;border-radius:var(--r-sm);
-}
-.skip:focus{inset-inline-start:8px}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip{position:fixed;inset-inline-start:-9999px;top:var(--s-3);z-index:200;
+      background:var(--brand);color:var(--on-brand);padding:var(--s-3) var(--s-5);
+      border-radius:var(--r-sm);font-weight:600;box-shadow:var(--sh-lg)}
+.skip:focus{inset-inline-start:var(--s-3)}
 
-/* ----------------------------------------------------------------- login */
-.login-wrap{min-height:100dvh;display:grid;place-items:center;padding:24px}
-.login{
-  width:100%;max-width:420px;background:var(--surface);padding:34px 30px 30px;
-  border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);
+/* ═══════════════════════════════════════════════════════════ controls */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--s-2);
+  padding:10px var(--s-5);border:1px solid transparent;border-radius:var(--r-sm);
+  font:inherit;font-weight:600;font-size:var(--t-md);line-height:1.2;
+  cursor:pointer;white-space:nowrap;
+  transition:background var(--fast) var(--ease), border-color var(--fast) var(--ease),
+             box-shadow var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
-.brand{font-size:27px;font-weight:800;letter-spacing:-.02em}
-.brand span{color:var(--brand)}
-.tagline{color:var(--muted);font-size:14px;margin:6px 0 22px}
-.tabs{display:flex;gap:6px;background:var(--surface-2);border:1px solid var(--line);
-      border-radius:var(--r-sm);padding:4px;margin-bottom:22px}
-.tabs button{
-  flex:1;padding:9px;border:0;border-radius:6px;background:transparent;cursor:pointer;
-  font:inherit;font-weight:600;color:var(--muted);
+.btn:active{transform:translateY(.5px)}
+.btn[disabled]{opacity:.5;cursor:not-allowed;transform:none}
+.btn-primary{background:var(--brand);color:var(--on-brand);box-shadow:var(--sh-xs)}
+.btn-primary:hover:not([disabled]){background:var(--brand-ink);box-shadow:var(--sh-sm)}
+.btn-secondary{background:var(--surface);color:var(--text);border-color:var(--line-strong);
+               box-shadow:var(--sh-xs)}
+.btn-secondary:hover:not([disabled]){background:var(--surface-3);border-color:var(--n-400)}
+.btn-ghost{background:transparent;color:var(--text-2)}
+.btn-ghost:hover:not([disabled]){background:var(--surface-3);color:var(--text)}
+.btn-danger{background:transparent;color:var(--neg);border-color:var(--line-strong)}
+.btn-danger:hover:not([disabled]){background:var(--neg-50);border-color:var(--neg)}
+.btn-sm{padding:6px var(--s-3);font-size:var(--t-sm)}
+.btn-block{width:100%}
+.btn-icon{padding:8px;border-radius:var(--r-sm)}
+
+label{display:block;font-size:var(--t-sm);font-weight:600;margin-bottom:var(--s-2);
+      color:var(--text-2)}
+input,select,textarea{
+  width:100%;padding:10px var(--s-3);
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--text);font:inherit;font-size:var(--t-md);
+  transition:border-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
 }
-.tabs button[aria-selected="true"]{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
-label{display:block;font-size:13px;font-weight:600;margin:0 0 6px}
-input,select{
-  width:100%;padding:11px 12px;border:1px solid var(--line-strong);
-  border-radius:var(--r-sm);font:inherit;background:var(--surface);color:var(--text);
+input:hover,select:hover{border-color:var(--n-400)}
+input:focus,select:focus,textarea:focus{
+  outline:none;border-color:var(--brand);box-shadow:var(--ring);
 }
-input+label,select+label,.field+.field{margin-top:16px}
-.field{margin-bottom:16px}
-.hint{font-size:12px;color:var(--muted);margin-top:5px}
-button.primary,.login button[type=submit]{
-  width:100%;margin-top:22px;padding:12px;border:0;border-radius:var(--r-sm);
-  background:var(--brand);color:#fff;font:inherit;font-weight:700;cursor:pointer;
+input::placeholder{color:var(--text-3)}
+select{appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--text-3) 50%),
+                   linear-gradient(135deg,var(--text-3) 50%,transparent 50%);
+  background-position:calc(var(--s-4) - 4px) calc(50% + 1px), calc(var(--s-4) + 1px) calc(50% + 1px);
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+  padding-inline-start:var(--s-8);
 }
-button.primary:hover,.login button[type=submit]:hover{background:var(--brand-ink)}
-button[disabled]{opacity:.55;cursor:not-allowed}
+.field{margin-bottom:var(--s-5)}
+.hint{font-size:var(--t-xs);color:var(--text-3);margin-top:var(--s-2);line-height:1.5}
+
+/* ═══════════════════════════════════════════════════════════ auth screen */
+.auth{min-height:100dvh;display:grid;place-items:center;padding:var(--s-6);
+      background:
+        radial-gradient(900px 500px at 85% -8%, var(--brand-soft), transparent 60%),
+        radial-gradient(700px 500px at 5% 105%, var(--surface-3), transparent 55%),
+        var(--bg);
+}
+.auth-card{
+  width:100%;max-width:430px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r-xl);
+  padding:var(--s-10) var(--s-8) var(--s-8);box-shadow:var(--sh-lg);
+}
+.logo{display:flex;align-items:center;gap:10px;font-size:var(--t-2xl);
+      font-weight:800;letter-spacing:-.03em}
+.logo .mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;
+            background:var(--brand);color:var(--on-brand);flex:none;box-shadow:var(--sh-sm)}
+.logo em{font-style:normal;color:var(--brand)}
+.tagline{color:var(--text-2);font-size:var(--t-md);margin:var(--s-3) 0 var(--s-6)}
+
+.tabs{display:flex;gap:var(--s-1);background:var(--surface-3);
+      border-radius:var(--r-sm);padding:var(--s-1);margin-bottom:var(--s-6)}
+.tabs button{flex:1;padding:9px;border:0;border-radius:var(--r-xs);background:transparent;
+             font:inherit;font-weight:600;font-size:var(--t-md);color:var(--text-2);
+             cursor:pointer;transition:all var(--fast) var(--ease)}
+.tabs button:hover{color:var(--text)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--text);
+                                   box-shadow:var(--sh-sm)}
+
 .pw{position:relative}
-.pw input{padding-inline-start:62px}
-.pw button{
-  position:absolute;inset-inline-start:6px;top:50%;transform:translateY(-50%);
-  background:none;border:0;font:inherit;font-size:13px;font-weight:700;
-  color:var(--brand-ink);cursor:pointer;padding:6px 8px;border-radius:6px;
-}
+.pw input{padding-inline-start:66px}
+.pw button{position:absolute;inset-inline-start:5px;top:50%;transform:translateY(-50%);
+  background:transparent;border:0;font:inherit;font-size:var(--t-sm);font-weight:600;
+  color:var(--brand-ink);cursor:pointer;padding:6px var(--s-2);border-radius:var(--r-xs)}
 .pw button:hover{background:var(--brand-soft)}
-.msg{margin-top:14px;padding:11px 13px;border-radius:var(--r-sm);font-size:14px;display:none}
+
+.msg{margin-top:var(--s-4);padding:11px var(--s-4);border-radius:var(--r-sm);
+     font-size:var(--t-md);display:none;border:1px solid transparent;line-height:1.5}
 .msg:not(:empty){display:block}
-.msg.err{background:var(--bad-soft);color:var(--bad)}
-.msg.ok{background:var(--good-soft);color:var(--good)}
+.msg.err{background:var(--neg-50);color:var(--neg-700);border-color:color-mix(in srgb,var(--neg) 25%,transparent)}
+.msg.ok{background:var(--pos-50);color:var(--pos-700);border-color:color-mix(in srgb,var(--pos) 25%,transparent)}
 
-/* ------------------------------------------------------------- app shell */
-.shell{display:grid;grid-template-columns:var(--nav) 1fr;min-height:100dvh}
+/* ═══════════════════════════════════════════════════════════ app shell */
+.shell{display:grid;grid-template-columns:var(--nav-w) 1fr;min-height:100dvh}
 .side{
+  position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;
+  gap:var(--s-6);padding:var(--s-6) var(--s-4);
   background:var(--surface);border-inline-start:1px solid var(--line);
-  padding:24px 18px;display:flex;flex-direction:column;gap:22px;
-  position:sticky;top:0;height:100dvh;
 }
-.side .brand{font-size:22px}
-.nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+.side-head{display:flex;align-items:center;justify-content:space-between;
+           gap:var(--s-2);padding-inline:var(--s-2)}
+.side .logo{font-size:var(--t-xl)}
+.side .logo .mark{width:30px;height:30px;border-radius:9px}
+.co-logo{max-height:34px;max-width:140px;object-fit:contain;display:block}
+
+.nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
 .nav a{
-  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-sm);
-  color:var(--text);text-decoration:none;font-weight:600;font-size:14.5px;
+  display:flex;align-items:center;gap:11px;padding:9px var(--s-3);
+  border-radius:var(--r-sm);color:var(--text-2);text-decoration:none;
+  font-weight:600;font-size:var(--t-md);position:relative;
+  transition:background var(--fast) var(--ease), color var(--fast) var(--ease);
 }
-.nav a:hover{background:var(--surface-2)}
+.nav a:hover{background:var(--surface-3);color:var(--text)}
 .nav a[aria-current="page"]{background:var(--brand-soft);color:var(--brand-ink)}
-.nav .ico{font-size:17px;line-height:1}
-.side-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:16px;font-size:13px}
-.side-foot .who{display:block;color:var(--muted);word-break:break-all;margin-bottom:10px}
-.linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--brand-ink);
-         cursor:pointer;text-decoration:underline}
-main{padding:32px 34px 64px;max-width:1120px}
-.page-head{margin-bottom:26px}
-.page-head p{color:var(--muted);margin-top:6px;max-width:70ch}
+.nav a[aria-current="page"]::before{
+  content:"";position:absolute;inset-inline-end:calc(var(--s-4) * -1);top:50%;transform:translateY(-50%);
+  width:3px;height:18px;border-radius:3px;background:var(--brand);
+}
+.nav svg{width:18px;height:18px;stroke-width:2}
+.nav-label{font-size:var(--t-xs);font-weight:700;color:var(--text-3);
+           text-transform:uppercase;letter-spacing:.06em;padding:0 var(--s-3);
+           margin-bottom:var(--s-2)}
 
-@media (max-width:860px){
+.side-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:var(--s-4)}
+.who-row{display:flex;align-items:center;gap:10px;padding:var(--s-2)}
+.avatar{width:32px;height:32px;border-radius:var(--r-full);flex:none;display:grid;
+        place-items:center;background:var(--brand-soft);color:var(--brand-ink);
+        font-weight:700;font-size:var(--t-sm)}
+.who-text{min-width:0;flex:1}
+.who-text b{display:block;font-size:var(--t-sm);font-weight:700;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who-text span{display:block;font-size:var(--t-xs);color:var(--text-3);
+               overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+main{padding:var(--s-8) var(--s-10) var(--s-16);max-width:1180px;width:100%}
+.page-head{margin-bottom:var(--s-8)}
+.page-head h1{margin-bottom:var(--s-2)}
+.page-head p{color:var(--text-2);max-width:68ch;font-size:var(--t-lg)}
+
+.topbar{display:none}
+@media (max-width:900px){
   .shell{grid-template-columns:1fr}
-  .side{position:static;height:auto;flex-direction:row;align-items:center;
-        gap:14px;overflow-x:auto;border-inline-start:0;border-bottom:1px solid var(--line);
-        padding:14px}
-  .side .brand,.side-foot{display:none}
-  .nav{flex-direction:row;gap:4px}
-  .nav a{white-space:nowrap}
-  main{padding:22px 16px 56px}
+  .side{position:fixed;inset-block:0;inset-inline-end:0;width:min(84vw,var(--nav-w));
+        z-index:60;transform:translateX(100%);box-shadow:var(--sh-lg);
+        transition:transform var(--base) var(--ease)}
+  .side.open{transform:none}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);
+          position:sticky;top:0;z-index:40;padding:var(--s-3) var(--s-4);
+          background:color-mix(in srgb,var(--surface) 88%,transparent);
+          backdrop-filter:saturate(180%) blur(12px);
+          border-bottom:1px solid var(--line)}
+  .scrim{position:fixed;inset:0;z-index:50;background:rgb(9 12 18 / .5);
+         opacity:0;pointer-events:none;transition:opacity var(--base) var(--ease)}
+  .scrim.on{opacity:1;pointer-events:auto}
+  main{padding:var(--s-5) var(--s-4) var(--s-12)}
+  .page-head p{font-size:var(--t-md)}
+  h1{font-size:var(--t-2xl)}
 }
 
-/* ----------------------------------------------------------------- cards */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-      padding:22px;box-shadow:var(--shadow-sm);margin-bottom:22px}
-.card > h2{margin-bottom:4px}
-.card > .sub{color:var(--muted);font-size:13.5px;margin-bottom:18px}
-.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
-.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-      padding:18px;box-shadow:var(--shadow-sm)}
-.tile .k{font-size:13px;color:var(--muted);font-weight:600}
-.tile .v{font-size:28px;font-weight:800;margin-top:6px;letter-spacing:-.02em}
-.tile .n{font-size:12.5px;color:var(--muted);margin-top:4px}
-.null{color:var(--muted)}
+/* ═══════════════════════════════════════════════════════════ surfaces */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+      padding:var(--s-6);box-shadow:var(--sh-sm);margin-bottom:var(--s-5)}
+.card>h2{margin-bottom:var(--s-1)}
+.card>.sub{color:var(--text-2);font-size:var(--t-md);margin-bottom:var(--s-5);max-width:74ch}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;
+           gap:var(--s-4);flex-wrap:wrap;margin-bottom:var(--s-5)}
+.card-head>div{min-width:0}
+.card-head h2{margin-bottom:var(--s-1)}
+.card-head .sub{margin:0}
 
-.finding{background:var(--brand-soft);border:1px solid #d5dcff;border-radius:var(--r);
-         padding:16px 18px;margin-bottom:18px;font-size:14.5px;line-height:1.7}
-.finding strong{color:var(--brand-ink)}
-.note{color:var(--muted);font-size:13px;margin-top:10px}
-.caveat{background:var(--warn-soft);border:1px solid #f3ddb4;color:#6c4300;
-        border-radius:var(--r-sm);padding:12px 14px;font-size:13.5px;margin-top:14px}
+.grid{display:grid;gap:var(--s-4);grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+      padding:var(--s-5);box-shadow:var(--sh-sm);
+      transition:box-shadow var(--base) var(--ease), transform var(--base) var(--ease)}
+.tile:hover{box-shadow:var(--sh-md);transform:translateY(-1px)}
+.tile .k{font-size:var(--t-sm);color:var(--text-2);font-weight:600}
+.tile .v{font-size:var(--t-3xl);font-weight:800;letter-spacing:-.03em;
+         margin-top:var(--s-2);line-height:1.1}
+.tile .n{font-size:var(--t-xs);color:var(--text-3);margin-top:var(--s-2);line-height:1.5}
+.tile .actual{font-size:var(--t-xs);color:var(--text-3);margin-top:var(--s-1)}
+.null{color:var(--text-3);font-weight:400}
 
-/* ------------------------------------------------------------ empty state */
-.empty{
-  background:var(--surface);border:2px dashed var(--line-strong);border-radius:var(--r-lg);
-  padding:46px 28px;text-align:center;box-shadow:none;
-}
-.empty .big{font-size:40px;margin-bottom:12px}
-.empty h2{margin-bottom:8px}
-.empty p{color:var(--muted);max-width:52ch;margin:0 auto 6px}
+.callout{border-radius:var(--r-md);padding:var(--s-4) var(--s-5);margin-bottom:var(--s-5);
+         font-size:var(--t-md);line-height:1.7;border:1px solid transparent}
+.callout.brand{background:var(--brand-soft);color:var(--text);
+               border-color:color-mix(in srgb,var(--brand) 22%,transparent)}
+.callout.brand strong{color:var(--brand-ink)}
+.callout.warn{background:var(--warn-50);color:var(--warn-700);
+              border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
+.callout.neg{background:var(--neg-50);color:var(--neg-700);
+             border-color:color-mix(in srgb,var(--neg) 25%,transparent)}
+.callout.pos{background:var(--pos-50);color:var(--pos-700);
+             border-color:color-mix(in srgb,var(--pos) 25%,transparent)}
+.callout h3{margin-bottom:var(--s-1);font-size:var(--t-md)}
+.callout ul{margin:var(--s-2) 0 0;padding-inline-start:var(--s-5);line-height:1.8}
+.note{color:var(--text-3);font-size:var(--t-sm);margin-top:var(--s-3);line-height:1.6}
 
-/* ---------------------------------------------------------------- charts */
-.bars{display:flex;flex-direction:column;gap:11px}
-.bar-row{display:grid;grid-template-columns:130px 1fr 92px;align-items:center;gap:12px;font-size:14px}
-.bar{height:22px;background:var(--brand);border-radius:5px;min-width:3px}
-.bar.good{background:var(--good)} .bar.warn{background:#e0a032} .bar.bad{background:var(--bad)}
-.bar-val{text-align:start;color:var(--muted);font-size:13px}
-.bar-lbl{font-weight:600}
-
-.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r)}
-table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
-th,td{padding:10px 13px;text-align:start;border-bottom:1px solid var(--line);white-space:nowrap}
-th{background:var(--surface-2);font-weight:700;font-size:12.5px;color:var(--muted)}
+/* ═══════════════════════════════════════════════════════════ data */
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-md);
+            background:var(--surface)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:var(--t-md);min-width:520px}
+th,td{padding:11px var(--s-4);text-align:start;border-bottom:1px solid var(--line);
+      white-space:nowrap}
+th{position:sticky;top:0;z-index:1;background:var(--surface-2);
+   font-weight:700;font-size:var(--t-xs);color:var(--text-3);
+   text-transform:uppercase;letter-spacing:.05em}
 tbody tr:last-child td{border-bottom:0}
+tbody tr{transition:background var(--fast) var(--ease)}
 tbody tr:hover{background:var(--surface-2)}
-tr.good td{background:var(--good-soft)} tr.bad td{background:var(--bad-soft)}
-.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700}
-.pill.yes{background:var(--good-soft);color:var(--good)}
-.pill.no{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+tr.pos td{background:var(--pos-50)} tr.neg td{background:var(--neg-50)}
 
-.filters{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
+       border-radius:var(--r-full);font-size:var(--t-xs);font-weight:700;
+       border:1px solid transparent;white-space:nowrap}
+.badge.pos{background:var(--pos-50);color:var(--pos-700);
+           border-color:color-mix(in srgb,var(--pos) 25%,transparent)}
+.badge.neg{background:var(--neg-50);color:var(--neg-700);
+           border-color:color-mix(in srgb,var(--neg) 25%,transparent)}
+.badge.mute{background:var(--surface-3);color:var(--text-3);border-color:var(--line)}
+.badge.brand{background:var(--brand-soft);color:var(--brand-ink);
+             border-color:color-mix(in srgb,var(--brand) 22%,transparent)}
+
+.bars{display:flex;flex-direction:column;gap:10px}
+.bar-row{display:grid;grid-template-columns:minmax(96px,150px) 1fr auto;
+         align-items:center;gap:var(--s-4);font-size:var(--t-md)}
+.bar-lbl{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{background:var(--surface-3);border-radius:var(--r-full);height:22px;overflow:hidden}
+.bar{height:100%;border-radius:var(--r-full);background:var(--brand);min-width:3px;
+     transition:width var(--base) var(--ease)}
+.bar.pos{background:var(--pos)} .bar.warn{background:var(--warn)} .bar.neg{background:var(--neg)}
+.bar-val{color:var(--text-2);font-size:var(--t-sm);text-align:start;white-space:nowrap}
+
+.filters{display:grid;gap:var(--s-4);grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
          background:var(--surface-2);border:1px solid var(--line);
-         border-radius:var(--r);padding:16px;margin-bottom:16px}
-.filters label{font-size:12.5px}
+         border-radius:var(--r-md);padding:var(--s-5);margin-bottom:var(--s-5)}
+.filters label{font-size:var(--t-xs)}
+.pred{display:grid;gap:var(--s-4);grid-template-columns:repeat(auto-fit,minmax(215px,1fr));
+      margin-top:var(--s-5)}
+.pred .tile .v{font-size:var(--t-2xl)}
 
-.pred{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:18px}
-.pred .tile .v{font-size:24px}
-.pred .actual{font-size:12.5px;color:var(--muted);margin-top:4px}
+/* ═══════════════════════════════════════════════════════════ states */
+.empty{background:var(--surface);border:1px dashed var(--line-strong);
+       border-radius:var(--r-xl);padding:var(--s-16) var(--s-6);text-align:center}
+.empty .art{width:60px;height:60px;margin:0 auto var(--s-5);border-radius:var(--r-lg);
+            display:grid;place-items:center;background:var(--brand-soft);color:var(--brand)}
+.empty h2{margin-bottom:var(--s-3)}
+.empty p{color:var(--text-2);max-width:54ch;margin:0 auto}
 
-.loading{color:var(--muted);padding:30px 0}
+.drop{border:2px dashed var(--line-strong);border-radius:var(--r-lg);
+      background:var(--surface-2);padding:var(--s-10) var(--s-5);text-align:center;
+      cursor:pointer;transition:all var(--fast) var(--ease)}
+.drop:hover{border-color:var(--brand);background:var(--brand-soft)}
+.drop.over{border-color:var(--brand);background:var(--brand-soft);transform:scale(1.005)}
+.drop .art{width:44px;height:44px;margin:0 auto var(--s-3);color:var(--brand)}
+.drop .name{font-weight:700;margin-top:var(--s-2);color:var(--brand-ink)}
 
-/* --------------------------------------------------------------- uploads */
-.btnlink{display:inline-block;background:var(--brand);color:#fff;text-decoration:none;
-         padding:11px 22px;border-radius:var(--r-sm);font-weight:700}
-.btnlink:hover{background:var(--brand-ink)}
-.drop{
-  border:2px dashed var(--line-strong);border-radius:var(--r);background:var(--surface-2);
-  padding:30px 20px;text-align:center;cursor:pointer;
+.skeleton{background:linear-gradient(90deg,var(--surface-3) 25%,var(--surface-2) 50%,var(--surface-3) 75%);
+          background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:var(--r-sm)}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+.sk-line{height:13px;margin-bottom:10px}
+.sk-tile{height:112px;border-radius:var(--r-lg)}
+
+.spinner{width:15px;height:15px;border:2px solid color-mix(in srgb,currentColor 30%,transparent);
+         border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.row-actions{display:flex;gap:var(--s-3);flex-wrap:wrap;margin-top:var(--s-5)}
+
+/* ═══════════════════════════════════════════════════════════ toasts
+   Replacing alert(), which blocks the page, cannot be styled, and says
+   "localhost says" in Chrome — three things a product being sold should not do. */
+.toasts{position:fixed;inset-block-end:var(--s-6);inset-inline-start:var(--s-6);
+        z-index:300;display:flex;flex-direction:column;gap:10px;max-width:min(92vw,400px)}
+.toast{display:flex;gap:11px;align-items:flex-start;padding:var(--s-4);
+       background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+       box-shadow:var(--sh-lg);font-size:var(--t-md);line-height:1.5;
+       animation:rise var(--base) var(--ease)}
+.toast .ic{flex:none;margin-top:1px}
+.toast.pos .ic{color:var(--pos)} .toast.neg .ic{color:var(--neg)}
+.toast.warn .ic{color:var(--warn)} .toast.info .ic{color:var(--brand)}
+.toast button{margin-inline-start:auto;background:none;border:0;cursor:pointer;
+              color:var(--text-3);padding:2px;border-radius:var(--r-xs)}
+.toast button:hover{color:var(--text)}
+@keyframes rise{from{opacity:0;transform:translateY(10px) scale(.98)}}
+
+details>summary{cursor:pointer;font-weight:600;color:var(--text-2);
+                padding:var(--s-2) 0;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"▸";display:inline-block;margin-inline-end:6px;
+                        transition:transform var(--fast) var(--ease)}
+details[open]>summary::before{transform:rotate(-90deg)}
+
+@media print{
+  .side,.topbar,.toasts,.skip,.row-actions{display:none!important}
+  .shell{grid-template-columns:1fr}
+  .card,.tile{box-shadow:none;break-inside:avoid}
+  main{padding:0;max-width:none}
 }
-.drop.over{border-color:var(--brand);background:var(--brand-soft)}
-.drop .big{font-size:32px}
-.drop .name{font-weight:700;margin-top:8px}
-.report{margin-top:20px}
-.report ul{margin:8px 0 0;padding-inline-start:20px;line-height:1.9}
-.box{border-radius:var(--r-sm);padding:14px 16px;margin-top:14px;font-size:14px}
-.box.err{background:var(--bad-soft);border:1px solid #f4c3ca;color:#8d1f2d}
-.box.warn{background:var(--warn-soft);border:1px solid #f3ddb4;color:#6c4300}
-.box.ok{background:var(--good-soft);border:1px solid #bfe4d2;color:#0a5c39}
-.box h3{margin-bottom:4px}
-.row-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
-.row-actions button{width:auto;margin:0;padding:11px 22px}
-button.ghost{background:var(--surface);color:var(--bad);border:1px solid var(--line-strong);
-             border-radius:var(--r-sm);font:inherit;font-weight:600;cursor:pointer;padding:7px 14px}
-button.ghost:hover{background:var(--bad-soft);border-color:#f4c3ca}
 </style>
 </head>
 <body>
 
 <a class="skip" href="#main">דלג לתוכן הראשי</a>
+<noscript>
+  <div style="padding:24px;text-align:center">
+    FunnelIQ מחשב את הניתוחים בדפדפן ולכן דורש JavaScript. אנא הפעל אותו ורענן את הדף.
+  </div>
+</noscript>
 
-<!-- ===================================================== login / sign-up -->
-<div id="loginView" class="login-wrap">
-  <form class="login" id="loginForm">
-    <h1 class="brand">Funnel<span>IQ</span></h1>
+<div class="toasts" id="toasts" role="region" aria-label="הודעות מערכת" aria-live="polite"></div>
+
+<!-- ══════════════════════════════════════════════ sign in / sign up -->
+<div id="loginView" class="auth">
+  <form class="auth-card" id="loginForm">
+    <div class="logo">
+      <span class="mark" aria-hidden="true">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 4h18l-7 8v7l-4 2v-9z"/>
+        </svg>
+      </span>
+      <span>Funnel<em>IQ</em></span>
+    </div>
     <p class="tagline" id="tagline">ניתוח קמפיינים לחברה שלך</p>
 
     <div class="tabs" role="tablist" aria-label="כניסה או הרשמה">
@@ -239,7 +515,7 @@ button.ghost:hover{background:var(--bad-soft);border-color:#f4c3ca}
     <div id="companyField" class="field hidden">
       <label for="company">שם החברה</label>
       <input id="company" type="text" autocomplete="organization" placeholder="לדוגמה: נורת'באונד מדיה">
-      <p class="hint">זה השם של סביבת העבודה שלך. רק אנשים שתזמין יוכלו לראות את הנתונים בה.</p>
+      <p class="hint">זה שם סביבת העבודה שלך. רק אנשים שתזמין יוכלו לראות את הנתונים בה.</p>
     </div>
 
     <div class="field">
@@ -247,6 +523,7 @@ button.ghost:hover{background:var(--bad-soft);border-color:#f4c3ca}
       <input id="email" type="text" autocomplete="username" required>
       <p class="hint" id="emailHint">אפשר להתחבר עם כתובת האימייל או עם שם החברה שנרשמת איתו.</p>
     </div>
+
     <div class="field">
       <label for="password">סיסמה</label>
       <div class="pw">
@@ -256,35 +533,106 @@ button.ghost:hover{background:var(--bad-soft);border-color:#f4c3ca}
       </div>
     </div>
 
-    <button type="submit" id="loginBtn">כניסה</button>
+    <button type="submit" class="btn btn-primary btn-block" id="loginBtn">כניסה</button>
     <div class="msg err" id="loginErr" role="alert"></div>
     <div class="msg ok" id="loginOk" role="status"></div>
   </form>
 </div>
 
-<!-- ================================================================= app -->
+<!-- ══════════════════════════════════════════════════════════ app -->
 <div id="appView" class="shell hidden">
-  <aside class="side">
-    <h1 class="brand">Funnel<span>IQ</span></h1>
+  <header class="topbar">
+    <div class="logo" style="font-size:var(--t-lg)">
+      <span class="mark" style="width:26px;height:26px;border-radius:8px" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 4h18l-7 8v7l-4 2v-9z"/></svg>
+      </span>
+      <span>Funnel<em>IQ</em></span>
+    </div>
+    <button class="btn btn-ghost btn-icon" id="navToggle"
+            aria-expanded="false" aria-controls="sideNav" aria-label="פתח תפריט">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+  </header>
+  <div class="scrim" id="scrim" hidden></div>
+
+  <aside class="side" id="sideNav">
+    <div class="side-head">
+      <div id="brandSlot" class="logo">
+        <span class="mark" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 4h18l-7 8v7l-4 2v-9z"/></svg>
+        </span>
+        <span>Funnel<em>IQ</em></span>
+      </div>
+      <button class="btn btn-ghost btn-icon" id="themeBtn" aria-label="החלף למצב כהה"
+              title="החלף למצב כהה"></button>
+    </div>
+
     <nav aria-label="ניווט ראשי">
+      <p class="nav-label">סקירה</p>
       <ul class="nav" id="nav">
-        <li><a href="#/home"    data-page="home"><span class="ico" aria-hidden="true">🏠</span>דף הבית</a></li>
-        <li><a href="#/data"    data-page="data"><span class="ico" aria-hidden="true">📊</span>הנתונים שלי</a></li>
-        <li><a href="#/predict" data-page="predict"><span class="ico" aria-hidden="true">🎯</span>תחזיות</a></li>
-        <li><a href="#/funnel"  data-page="funnel"><span class="ico" aria-hidden="true">🔻</span>משפך המכירות</a></li>
-        <li><a href="#/budget"  data-page="budget"><span class="ico" aria-hidden="true">💰</span>תקציב</a></li>
-        <li><a href="#/upload"  data-page="upload"><span class="ico" aria-hidden="true">⬆️</span>העלאת נתונים</a></li>
-        <li><a href="#/profile" data-page="profile"><span class="ico" aria-hidden="true">👤</span>פרופיל</a></li>
+        <li><a href="#/home" data-page="home">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+               stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+          דף הבית</a></li>
+        <li><a href="#/data" data-page="data">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+               stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          הנתונים שלי</a></li>
+        <li><a href="#/predict" data-page="predict">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+               stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>
+               <circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+          תחזיות</a></li>
+        <li><a href="#/funnel" data-page="funnel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+               stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
+          משפך המכירות</a></li>
+        <li><a href="#/budget" data-page="budget">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+               stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+          תקציב</a></li>
+      </ul>
+
+      <p class="nav-label" style="margin-top:var(--s-5)">סביבת העבודה</p>
+      <ul class="nav">
+        <li><a href="#/upload" data-page="upload">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+               stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/>
+               <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+          העלאת נתונים</a></li>
+        <li><a href="#/profile" data-page="profile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"
+               stroke-linejoin="round"><circle cx="12" cy="8" r="4"/>
+               <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+          פרופיל</a></li>
       </ul>
     </nav>
+
     <div class="side-foot">
-      <span class="who" id="who"></span>
-      <button class="linkbtn" id="logoutBtn">התנתקות</button>
+      <div class="who-row">
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <span class="who-text">
+          <b id="whoCompany"></b>
+          <span class="who" id="who"></span>
+        </span>
+      </div>
+      <button class="btn btn-ghost btn-sm btn-block" id="logoutBtn" style="margin-top:var(--s-2)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/>
+          <path d="M21 12H9"/></svg>
+        התנתקות
+      </button>
     </div>
   </aside>
 
   <main id="main" tabindex="-1">
-    <div id="pageBody" class="loading">טוען…</div>
+    <div id="pageBody"></div>
   </main>
 </div>
 
@@ -348,20 +696,199 @@ const num   = (v) => v == null ? na() : `<bdi class="num" dir="ltr">${nf.format(
 const money = (v) => v == null ? na() : `<bdi class="num" dir="ltr">₪${nf.format(Math.round(v))}</bdi>`;
 const pct   = (v) => v == null ? na() : `<bdi class="num" dir="ltr">${v}%</bdi>`;
 const mult  = (v) => v == null ? na() : `<bdi class="num" dir="ltr">${v}x</bdi>`;
-const bool  = (v) => v ? '<span class="pill yes">כן</span>' : '<span class="pill no">לא</span>';
+const bool  = (v) => v ? '<span class="badge pos">כן</span>' : '<span class="badge mute">לא</span>';
 const TIER_HE = { Low:"נמוכה", Mid:"בינונית", High:"גבוהה" };
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ═══════════════════════════════════════════════ theme, toasts, chrome
+   The parts of a product that are invisible when they work: which theme you
+   left it in, a message that does not block the page, and a confirmation that
+   does not say "the site says" in the browser's own voice. */
+
+const THEME_KEY = "funneliq.theme";
+const ICONS = {
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+};
+const svg = (name, size = 18) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+
+function applyTheme(theme){
+  document.documentElement.setAttribute("data-theme", theme);
+  const dark = theme === "dark";
+  const btn = $("themeBtn");
+  if(btn){
+    btn.innerHTML = svg(dark ? "sun" : "moon", 18);
+    const label = dark ? "החלף למצב בהיר" : "החלף למצב כהה";
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+  }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.content = dark ? "#0b0e14" : "#ffffff";
+}
+
+function initTheme(){
+  let stored = null;
+  try{ stored = localStorage.getItem(THEME_KEY); }catch{ /* private mode */ }
+  // No stored choice means follow the system, and keep following it if the
+  // person changes it while the tab is open.
+  const system = window.matchMedia("(prefers-color-scheme: dark)");
+  applyTheme(stored || (system.matches ? "dark" : "light"));
+  system.addEventListener("change", (e) => {
+    let saved = null;
+    try{ saved = localStorage.getItem(THEME_KEY); }catch{ /* ignore */ }
+    if(!saved) applyTheme(e.matches ? "dark" : "light");
+  });
+}
+
+function toggleTheme(){
+  const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try{ localStorage.setItem(THEME_KEY, next); }catch{ /* nothing to do */ }
+}
+
+/* A message that appears beside the work instead of on top of it. alert()
+   blocks the page, cannot be styled, and prefixes everything with the host
+   name — three things a product being sold should not do. */
+function toast(kind, text, ms = 5200){
+  const icon = { pos:"check", neg:"alert", warn:"alert", info:"info" }[kind] || "info";
+  const el = document.createElement("div");
+  el.className = `toast ${kind}`;
+  el.setAttribute("role", kind === "neg" ? "alert" : "status");
+  el.innerHTML = `<span class="ic">${svg(icon, 18)}</span><span>${esc(text)}</span>
+    <button type="button" aria-label="סגור הודעה">${svg("x", 15)}</button>`;
+  const close = () => {
+    el.style.opacity = "0";
+    el.style.transform = "translateY(6px)";
+    setTimeout(() => el.remove(), 200);
+  };
+  el.querySelector("button").onclick = close;
+  $("toasts").appendChild(el);
+  if(ms) setTimeout(close, ms);
+  return close;
+}
+
+/* Destructive actions get a real dialog rather than window.confirm, which
+   cannot say which month is about to go, and cannot be read by anyone who
+   needs the wording to be in Hebrew and the buttons to be labelled. */
+function confirmDialog({ title, body, confirmText = "אישור", danger = true }){
+  return new Promise(resolve => {
+    const wrap = document.createElement("div");
+    wrap.className = "scrim on";
+    wrap.style.cssText = "display:grid;place-items:center;padding:24px";
+    wrap.innerHTML = `
+      <div class="card" role="alertdialog" aria-modal="true" aria-labelledby="cdT"
+           style="max-width:430px;margin:0;box-shadow:var(--sh-lg)">
+        <h2 id="cdT">${esc(title)}</h2>
+        <p class="sub" style="margin-top:8px">${esc(body)}</p>
+        <div class="row-actions" style="justify-content:flex-start;margin-top:20px">
+          <button class="btn ${danger ? "btn-danger" : "btn-primary"}" data-yes>${esc(confirmText)}</button>
+          <button class="btn btn-secondary" data-no>ביטול</button>
+        </div>
+      </div>`;
+    const previously = document.activeElement;
+    const done = (answer) => {
+      document.removeEventListener("keydown", onKey);
+      wrap.remove();
+      if(previously && previously.focus) previously.focus();
+      resolve(answer);
+    };
+    const onKey = (e) => {
+      if(e.key === "Escape") done(false);
+      // Focus stays inside the dialog: tabbing out of a modal and operating the
+      // page behind it is the classic way these go wrong.
+      if(e.key === "Tab"){
+        const targets = wrap.querySelectorAll("button");
+        const first = targets[0], last = targets[targets.length - 1];
+        if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+        else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      }
+    };
+    wrap.querySelector("[data-yes]").onclick = () => done(true);
+    wrap.querySelector("[data-no]").onclick = () => done(false);
+    wrap.onclick = (e) => { if(e.target === wrap) done(false); };
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(wrap);
+    wrap.querySelector("[data-no]").focus();
+  });
+}
+
+/* Shapes of the page that is coming, rather than the word "loading". The
+   difference is whether the wait feels like progress or like a stall. */
+const skeleton = (rows = 3) => `
+  <div class="page-head">
+    <div class="skeleton sk-line" style="width:220px;height:26px;margin-bottom:14px"></div>
+    <div class="skeleton sk-line" style="width:min(460px,80%)"></div>
+  </div>
+  <div class="grid" style="margin-bottom:20px">
+    ${Array.from({length:4}, () => '<div class="skeleton sk-tile"></div>').join("")}
+  </div>
+  ${Array.from({length:rows}, () => `<div class="card">
+      <div class="skeleton sk-line" style="width:170px;height:18px;margin-bottom:16px"></div>
+      <div class="skeleton sk-line" style="width:100%"></div>
+      <div class="skeleton sk-line" style="width:88%"></div>
+      <div class="skeleton sk-line" style="width:64%;margin:0"></div>
+    </div>`).join("")}`;
+
+const initials = (text) => (text || "?").trim().split(/\s+/).slice(0, 2)
+  .map(w => w[0]).join("").toUpperCase();
+
+/* The company's own mark replaces ours in their sidebar. Theirs is the one
+   that tells them at a glance whose workspace they are looking at. */
+function paintIdentity(){
+  const company = ME && ME.company ? ME.company.name : "";
+  $("whoCompany").textContent = company;
+  $("avatar").textContent = initials(company);
+  const logo = ME && ME.company && ME.company.logo_b64;
+  const slot = $("brandSlot");
+  slot.innerHTML = logo
+    ? `<img class="co-logo" src="${esc(logo)}" alt="${esc(company)}">`
+    : `<span class="mark" aria-hidden="true">
+         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M3 4h18l-7 8v7l-4 2v-9z"/></svg>
+       </span><span>Funnel<em>IQ</em></span>`;
+}
+
+/* On a narrow screen the sidebar is a drawer. It has to close when a link is
+   followed, or the person taps a page and stays looking at the menu. */
+function initNavDrawer(){
+  const side = $("sideNav"), scrim = $("scrim"), toggle = $("navToggle");
+  const setOpen = (open) => {
+    side.classList.toggle("open", open);
+    scrim.hidden = !open;
+    scrim.classList.toggle("on", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "סגור תפריט" : "פתח תפריט");
+  };
+  toggle.onclick = () => setOpen(!side.classList.contains("open"));
+  scrim.onclick = () => setOpen(false);
+  side.addEventListener("click", (e) => { if(e.target.closest("a")) setOpen(false); });
+  document.addEventListener("keydown", (e) => {
+    if(e.key === "Escape" && side.classList.contains("open")) setOpen(false);
+  });
+}
 
 /* ------------------------------------------------------------- app state */
 let ME = null, INSIGHTS = null;
 
 const emptyState = (what) => `
   <div class="empty">
-    <div class="big" aria-hidden="true">📂</div>
+    <div class="art" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <path d="M12 11v5M9.5 13.5 12 11l2.5 2.5"/></svg>
+    </div>
     <h2>אין עדיין נתונים ${what ? "ל" + what : ""}</h2>
     <p>סביבת העבודה של החברה שלך ריקה. ברגע שתעלה קובץ קמפיינים ראשון,
        המערכת תנתח אותו ותמלא את כל העמודים האלה.</p>
-    <p style="margin-top:20px"><a class="btnlink" href="#/upload">להעלאת הקובץ הראשון ←</a></p>
+    <p style="margin-top:20px"><a class="btn btn-primary" href="#/upload">להעלאת הקובץ הראשון ←</a></p>
   </div>`;
 
 /* --------------------------------------------------------------- widgets */
@@ -375,8 +902,9 @@ function barRows(items){
   const max = Math.max(...items.map(i => i.value), 1);
   return `<div class="bars">` + items.map(i => `
     <div class="bar-row">
-      <span class="bar-lbl">${i.label}</span>
-      <span><span class="bar ${i.cls || ""}" style="width:${Math.max(2, 100*i.value/max)}%;display:block"></span></span>
+      <span class="bar-lbl" title="${esc(i.label)}">${i.label}</span>
+      <span class="bar-track"><span class="bar ${i.cls || ""}"
+            style="width:${Math.max(2, 100*i.value/max)}%"></span></span>
       <span class="bar-val">${i.display}</span>
     </div>`).join("") + `</div>`;
 }
@@ -403,7 +931,7 @@ PAGES.home = () => {
   if(b.best){
     cards.push(`<section class="card"><h2>ההזדמנות הגדולה ביותר</h2>
       <p class="sub">מתוך עמוד התקציב</p>
-      <div class="finding">אותו כסף בדיוק — ${money(b.pot)} — היה מניב
+      <div class="callout brand">אותו כסף בדיוק — ${money(b.pot)} — היה מניב
         <strong>${pct(b.gainPct)} יותר רווח</strong> אילו כל הקמפיינים היו רצים
         בתקציב של ${money(b.best.budgetEach)} לקמפיין.</div>
       <a href="#/budget">לעמוד התקציב ←</a></section>`);
@@ -411,12 +939,12 @@ PAGES.home = () => {
   if(f.unansweredPct != null){
     cards.push(`<section class="card"><h2>הדליפה הגדולה ביותר במשפך</h2>
       <p class="sub">מתוך עמוד משפך המכירות</p>
-      <div class="finding"><strong>${pct(f.unansweredPct)} מהלידים לא עונים לטלפון כלל</strong> —
+      <div class="callout brand"><strong>${pct(f.unansweredPct)} מהלידים לא עונים לטלפון כלל</strong> —
         ${num(f.unanswered)} לידים. זה שלב אחד שמאבד יותר אנשים מכל שלבי המעקב ביחד.</div>
       <a href="#/funnel">לעמוד המשפך ←</a></section>`);
   }
   cards.push(`<section class="card"><h2>מה אפשר לעשות עכשיו</h2>
-    <ul style="margin:0;padding-inline-start:20px;color:var(--muted);line-height:2">
+    <ul style="margin:0;padding-inline-start:20px;color:var(--text-2);line-height:2">
       <li><a href="#/predict">לתת ציון לקמפיין</a> — מודלים מנבאים שווי לקוח, מכירה נוספת וציון לקוח-על.</li>
       <li><a href="#/data">לעבור על הנתונים הגולמיים</a> ולוודא שהכול נטען כמו שצריך.</li>
       <li><a href="#/profile">לבדוק את הפרופיל</a> ואת היסטוריית ההעלאות.</li>
@@ -446,7 +974,7 @@ PAGES.data = () => {
                                   display:num(t.count) + " קמפיינים" })))}</section>`;
 
   const missing = (s.missing.ltvMonths || s.missing.cumulativeProfit)
-    ? `<div class="caveat">חסרים ערכים בחלק מהשורות: שווי לקוח ב־${num(s.missing.ltvMonths)} שורות,
+    ? `<div class="callout warn">חסרים ערכים בחלק מהשורות: שווי לקוח ב־${num(s.missing.ltvMonths)} שורות,
        רווח מצטבר ב־${num(s.missing.cumulativeProfit)} שורות. הממוצעים מחושבים בלי השורות האלה.</div>` : "";
 
   return head + tiles + tierCard +
@@ -456,7 +984,9 @@ PAGES.data = () => {
          <th>מזהה</th><th>תקציב</th><th>רמה</th><th>לידים</th><th>ענו</th>
          <th>נסגרו</th><th>עלות לליד</th><th>שווי לקוח</th><th>רווח</th>
          <th>רכש</th><th>מכירה נוספת</th><th>הפנה</th>
-       </tr></thead><tbody><tr><td colspan="12" class="loading">טוען…</td></tr></tbody></table></div>
+       </tr></thead><tbody>${Array.from({length:5}, () => `<tr>${
+         Array.from({length:12}, () => '<td><span class="skeleton sk-line" style="width:52px;margin:0;display:block"></span></td>').join("")
+       }</tr>`).join("")}</tbody></table></div>
        ${missing}</section>`;
 };
 
@@ -528,14 +1058,15 @@ PAGES.funnel = () => {
     const lost = prev ? prev - s.count : 0;
     return `<div class="bar-row">
       <span class="bar-lbl">${stageHe[s.stage] || s.stage}</span>
-      <span><span class="bar" style="width:${Math.max(2, 100*s.count/max)}%;display:block"></span></span>
-      <span class="bar-val">${num(s.count)} · ${pct(s.pctOfLeads)}${lost > 0 ? ` <span style="color:var(--bad)">−${nf.format(lost)}</span>` : ""}</span>
+      <span class="bar-track"><span class="bar"
+            style="width:${Math.max(2, 100*s.count/max)}%"></span></span>
+      <span class="bar-val">${num(s.count)} · ${pct(s.pctOfLeads)}${lost > 0 ? ` <span style="color:var(--neg)">−${nf.format(lost)}</span>` : ""}</span>
     </div>`;
   }).join("");
 
   const funnelCard = `<section class="card">
     <h2>איפה המשפך מאבד אנשים</h2>
-    <div class="finding"><strong>${pct(f.unansweredPct)} מהלידים לא עונים כלל</strong> —
+    <div class="callout brand"><strong>${pct(f.unansweredPct)} מהלידים לא עונים כלל</strong> —
       ${num(f.unanswered)} לידים. השלב הזה לבדו מאבד יותר אנשים מכל שלבי המעקב יחד.</div>
     <p class="note" style="margin-top:0;margin-bottom:14px">
       המספרים הם סכום של כל ${num(f.campaigns)} הקמפיינים יחד, לא של קמפיין בודד.</p>
@@ -546,7 +1077,7 @@ PAGES.funnel = () => {
     const cmax = Math.max(...f.byCalls.map(c => c.avgProfit), 1);
     const callRows = f.byCalls.map(c => ({
       label: `${c.calls} שיחות`, value: Math.max(c.avgProfit, 0),
-      cls: c.avgProfit > cmax*0.6 ? "good" : (c.avgProfit > cmax*0.25 ? "warn" : "bad"),
+      cls: c.avgProfit > cmax*0.6 ? "pos" : (c.avgProfit > cmax*0.25 ? "warn" : "neg"),
       display: money(c.avgProfit) + ` · ${nf.format(c.campaigns)} קמפ׳`,
     }));
     const qHe = { "Worst 25%":"הרבע החלש", "Low-mid":"בינוני-נמוך",
@@ -556,7 +1087,7 @@ PAGES.funnel = () => {
 
     callsCard = `<section class="card">
       <h2>פרדוקס המעקב</h2>
-      <div class="finding">קמפיינים שנסגרים תוך שתי שיחות מרוויחים
+      <div class="callout brand">קמפיינים שנסגרים תוך שתי שיחות מרוויחים
         <strong>פי ${mult(f.gapRaw)}</strong> מקמפיינים שדורשים חמש שיחות ומעלה.
         אבל זו לא הוכחה שהשיחות מזיקות — כשמשווים רק בין קמפיינים באיכות לידים דומה,
         הפער נשאר <strong>פי ${mult(f.gapWithinQuality)}</strong>.
@@ -568,7 +1099,7 @@ PAGES.funnel = () => {
       <div class="table-wrap"><table><thead><tr>
         <th>איכות הלידים</th><th>עד 2 שיחות</th><th>3–4 שיחות</th><th>5+ שיחות</th>
       </tr></thead><tbody>${qRows}</tbody></table></div>
-      ${f.wastedCallShare != null ? `<div class="caveat">${pct(f.wastedCallShare)} מכל השיחות מושקעות בלידים שבסוף לא נסגרו.</div>` : ""}
+      ${f.wastedCallShare != null ? `<div class="callout warn">${pct(f.wastedCallShare)} מכל השיחות מושקעות בלידים שבסוף לא נסגרו.</div>` : ""}
     </section>`;
   } else {
     callsCard = `<section class="card"><h2>פרדוקס המעקב</h2>
@@ -593,7 +1124,7 @@ PAGES.budget = () => {
   const cmax = Math.max(...b.curve.map(c => c.returnPerShekel), 0.01);
   const curveRows = b.curve.map(c => ({
     label: `₪${nf.format(c.budget)}`, value: Math.max(c.returnPerShekel, 0),
-    cls: c.returnPerShekel >= 1 ? (c.returnPerShekel > cmax*0.5 ? "good" : "warn") : "bad",
+    cls: c.returnPerShekel >= 1 ? (c.returnPerShekel > cmax*0.5 ? "pos" : "warn") : "neg",
     display: mult(c.returnPerShekel) + ` · ${nf.format(c.campaigns)} קמפ׳`,
   }));
 
@@ -601,25 +1132,25 @@ PAGES.budget = () => {
     <h2>תשואה לכל שקל, לפי גובה התקציב</h2>
     <p class="sub">מעל פי 1 = הקמפיין החזיר יותר ממה שעלה. מתחת לפי 1 = הפסד.</p>
     ${barRows(curveRows)}
-    <div class="caveat">הקשר אינו ליניארי: אין "יותר תקציב = יותר רווח".
+    <div class="callout warn">הקשר אינו ליניארי: אין "יותר תקציב = יותר רווח".
       יש נקודת שיא, ומעליה התשואה יורדת.</div></section>`;
 
   let stratCard = "";
   if(b.best){
     const row = (s, cls) => `<tr class="${cls}"><td>${esc(s.label).replace("All at", "הכול בתקציב")}</td>
       <td>${num(s.campaigns)}</td><td>${money(s.expectedProfit)}</td><td>${mult(s.returnPerShekel)}</td></tr>`;
-    const top = b.strategies.slice(0,5).map((s,i) => row(s, i === 0 ? "good" : "")).join("");
-    const worst = b.strategies.slice(-2).map(s => row(s, "bad")).join("");
+    const top = b.strategies.slice(0,5).map((s,i) => row(s, i === 0 ? "pos" : "")).join("");
+    const worst = b.strategies.slice(-2).map(s => row(s, "neg")).join("");
     stratCard = `<section class="card">
       <h2>איפה לשים את התקציב</h2>
-      <div class="finding">אם כל ${money(b.pot)} — סך ההוצאה בפועל על כל הקמפיינים —
+      <div class="callout brand">אם כל ${money(b.pot)} — סך ההוצאה בפועל על כל הקמפיינים —
         היו מושקעים בקמפיינים של ${money(b.best.budgetEach)}, הרווח הצפוי היה
         <strong>${money(b.best.expectedProfit)}</strong> במקום ${money(b.current.expectedProfit)}.
         זה ${pct(b.gainPct)} יותר, מאותו כסף בדיוק.</div>
       <div class="table-wrap"><table><thead><tr>
         <th>אסטרטגיה</th><th>מספר קמפיינים</th><th>רווח צפוי</th><th>לכל שקל</th>
       </tr></thead><tbody>${top}
-        <tr><td colspan="4" style="text-align:center;color:var(--muted)">…</td></tr>
+        <tr><td colspan="4" style="text-align:center;color:var(--text-2)">…</td></tr>
         ${worst}
         <tr style="font-weight:700"><td>התמהיל הנוכחי</td><td>—</td>
           <td>${money(b.current.expectedProfit)}</td><td>${mult(b.current.returnPerShekel)}</td></tr>
@@ -645,7 +1176,12 @@ PAGES.upload = () => {
     </div>
 
     <div class="drop" id="drop" role="button" tabindex="0" aria-describedby="dropHint">
-      <div class="big" aria-hidden="true">📄</div>
+      <div class="art" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round" width="44" height="44">
+          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
+          <path d="M14 3v5h5"/><path d="M12 18v-6M9.5 14.5 12 12l2.5 2.5"/></svg>
+      </div>
       <div>גרור לכאן קובץ CSV, או לחץ כדי לבחור</div>
       <div class="name" id="dropName"></div>
     </div>
@@ -653,10 +1189,10 @@ PAGES.upload = () => {
     <input id="upFile" type="file" accept=".csv,text/csv" class="hidden">
 
     <div class="row-actions">
-      <button class="primary" id="upCheck" disabled>בדוק את הקובץ</button>
-      <button class="primary" id="upSave" disabled style="background:var(--good)">שמור את החודש הזה</button>
+      <button class="btn btn-primary" id="upCheck" disabled>בדוק את הקובץ</button>
+      <button class="btn btn-primary" id="upSave" disabled style="background:var(--pos)">שמור את החודש הזה</button>
     </div>
-    <div id="upReport" class="report"></div>
+    <div id="upReport"></div>
   </section>`;
 
   const cols = `<section class="card">
@@ -673,7 +1209,7 @@ PAGES.upload = () => {
         <td><bdi dir="ltr">${esc(c[4])}</bdi></td></tr>`).join("")}
     </tbody></table></div>
     <div class="row-actions">
-      <button class="primary" id="upTemplate" style="background:var(--surface);color:var(--brand-ink);border:1px solid var(--line-strong)">הורד קובץ לדוגמה</button>
+      <button class="btn btn-primary" id="upTemplate" style="background:var(--surface);color:var(--brand-ink);border:1px solid var(--line-strong)">הורד קובץ לדוגמה</button>
     </div>
   </section>`;
 
@@ -702,10 +1238,10 @@ const COLUMN_DOCS = [
 ];
 
 const UPLOAD_STATUS = {
-  ready:     '<span class="pill yes">נשמר</span>',
-  analysing: '<span class="pill no">בעיבוד</span>',
-  pending:   '<span class="pill no">ממתין</span>',
-  failed:    '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">נכשל</span>',
+  ready:     '<span class="badge pos">נשמר</span>',
+  analysing: '<span class="badge mute">בעיבוד</span>',
+  pending:   '<span class="badge mute">ממתין</span>',
+  failed:    '<span class="badge neg">נכשל</span>',
 };
 
 function uploadHistoryCard(){
@@ -713,9 +1249,9 @@ function uploadHistoryCard(){
     <td>${u.period}</td>
     <td><bdi dir="ltr">${esc(u.filename || "—")}</bdi></td>
     <td>${num(u.row_count)}</td>
-    <td>${UPLOAD_STATUS[u.status] || esc(u.status)}${u.error ? `<div class="n" style="color:var(--bad)">${esc(u.error)}</div>` : ""}</td>
+    <td>${UPLOAD_STATUS[u.status] || esc(u.status)}${u.error ? `<div class="n" style="color:var(--neg)">${esc(u.error)}</div>` : ""}</td>
     <td>${new Date(u.created_at).toLocaleDateString("he-IL")}</td>
-    <td><button class="ghost" data-del="${u.id}" data-period="${u.period}">מחק חודש</button></td>
+    <td><button class="btn btn-danger btn-sm" data-del="${u.id}" data-period="${u.period}">מחק חודש</button></td>
   </tr>`).join("");
 
   return `<section class="card"><h2>היסטוריית העלאות</h2>` + (rows
@@ -754,10 +1290,11 @@ function wireRename(){
       const data = await res.json();
       if(!res.ok) throw new Error(data.detail || "השינוי נכשל");
       ME.company = data;
+      paintIdentity();
       render();
+      toast("pos", "שם החברה עודכן.");
     }catch(e){
-      $("coMsg").textContent = e.message;
-      $("coMsg").style.color = "var(--bad)";
+      toast("neg", e.message);
     }finally{
       const b = $("coSave"); if(b) b.disabled = false;
     }
@@ -813,14 +1350,14 @@ function renderQuestions(r){
   }).join("");
 
   return `${done}
-    <div class="box warn"><h3>צריך את העזרה שלך ב־${r.questions.length} עמודות</h3>
+    <div class="callout warn"><h3>צריך את העזרה שלך ב־${r.questions.length} עמודות</h3>
       לא הצלחנו לזהות אותן לבד. בחר לכל שורה את העמודה המתאימה מהקובץ שלך —
       אנחנו מראים לך דוגמאות מהתוכן כדי שלא תצטרך לנחש לפי השם.</div>
     <div class="table-wrap" style="margin-top:14px"><table><thead><tr>
       <th style="width:45%">מה המערכת צריכה</th><th>העמודה שלך</th>
     </tr></thead><tbody>${rows}</tbody></table></div>
     <div class="row-actions">
-      <button class="primary" id="mapApply">אישור והמשך בדיקה</button>
+      <button class="btn btn-primary" id="mapApply">אישור והמשך בדיקה</button>
     </div>`;
 }
 
@@ -863,6 +1400,63 @@ function wireQuestions(r, recheck){
 const COLUMN_LABEL = Object.fromEntries(COLUMN_DOCS
   .filter(c => !c[0].includes("…"))
   .map(c => [c[0], c[1]]));
+
+async function saveCompany(changes, okText){
+  const s = loadSession();
+  if(!s) return showLogin("החיבור פג. התחבר שוב.");
+  const res = await fetch("/api/company", {
+    method:"PATCH",
+    headers:{ "Authorization":"Bearer " + s.token, "Content-Type":"application/json" },
+    body: JSON.stringify(changes),
+  });
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok) throw new Error(data.detail || "השינוי נכשל");
+  ME.company = data;
+  paintIdentity();
+  render();
+  if(okText) toast("pos", okText);
+}
+
+function wireLogo(){
+  const input = $("logoFile");
+  const pick = $("logoPick");
+  if(!pick) return;
+  pick.onclick = () => input.click();
+
+  input.onchange = () => {
+    const file = input.files[0];
+    if(!file) return;
+    // Checked here as well as on the server. The server is the boundary that
+    // matters; this one exists so the person is told before they wait for an
+    // upload that was never going to be accepted.
+    if(file.size > 300 * 1024) return toast("neg", "הקובץ גדול מ־300KB. נסה תמונה קטנה יותר.");
+    if(file.type === "image/svg+xml") return toast("neg", "קובצי SVG אינם נתמכים מטעמי אבטחה.");
+    const reader = new FileReader();
+    reader.onerror = () => toast("neg", "לא הצלחנו לקרוא את הקובץ.");
+    reader.onload = async () => {
+      pick.disabled = true; pick.textContent = "מעלה…";
+      try{
+        await saveCompany({ logo: reader.result }, "הלוגו עודכן.");
+      }catch(e){
+        toast("neg", e.message);
+        pick.disabled = false; pick.textContent = "בחר תמונה";
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clear = $("logoClear");
+  if(clear) clear.onclick = async () => {
+    const ok = await confirmDialog({
+      title: "להסיר את הלוגו?",
+      body: "התפריט יחזור להציג את הלוגו של FunnelIQ. אפשר להעלות לוגו חדש בכל רגע.",
+      confirmText: "הסר לוגו",
+    });
+    if(!ok) return;
+    try{ await saveCompany({ logo: null }, "הלוגו הוסר."); }
+    catch(e){ toast("neg", e.message); }
+  };
+}
 
 /* --------------------------------------------------------- page: upload */
 function wireUpload(){
@@ -921,10 +1515,10 @@ function wireUpload(){
     const list = (items) => `<ul>${items.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`;
     let html = "";
     if(saved){
-      html += `<div class="box ok"><h3>נשמר בהצלחה</h3>
+      html += `<div class="callout pos"><h3>נשמר בהצלחה</h3>
         ${num(r.rows)} שורות נוספו לחודש ${esc(r.period)}.</div>`;
     }else if(r.ok){
-      html += `<div class="box ok"><h3>הקובץ תקין</h3>
+      html += `<div class="callout pos"><h3>הקובץ תקין</h3>
         נמצאו ${num(r.rows)} שורות ו־${num(r.columns.length)} עמודות. אפשר לשמור.</div>`;
     }
     // Unrecognised columns are a question, not a failure. Showing the error
@@ -933,10 +1527,10 @@ function wireUpload(){
     if(r.needsMapping && !saved){
       html += renderQuestions(r);
     }else if(r.errors && r.errors.length){
-      html += `<div class="box err"><h3>הקובץ לא יכול להישמר</h3>${list(r.errors)}</div>`;
+      html += `<div class="callout neg"><h3>הקובץ לא יכול להישמר</h3>${list(r.errors)}</div>`;
     }
     if(r.warnings && r.warnings.length){
-      html += `<div class="box warn"><h3>שים לב</h3>${list(r.warnings)}
+      html += `<div class="callout warn"><h3>שים לב</h3>${list(r.warnings)}
         <p style="margin-top:8px">הדברים האלה לא מונעים שמירה. שום ערך לא יתוקן אוטומטית —
            מה שבקובץ הוא מה שיישמר.</p></div>`;
     }
@@ -966,7 +1560,7 @@ function wireUpload(){
       renderReport(r, false);
     }catch(e){
       if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
-      $("upReport").innerHTML = `<div class="box err">${esc(e.message)}</div>`;
+      $("upReport").innerHTML = `<div class="callout neg">${esc(e.message)}</div>`;
     }finally{
       btn.disabled = false; btn.textContent = "בדוק את הקובץ";
     }
@@ -984,9 +1578,13 @@ function wireUpload(){
       [ME, INSIGHTS] = await Promise.all([api("/api/me"), api("/api/insights")]);
       render();
       renderReport(r, true);
+      const useful = (r.models || []).filter(m => m.useful).length;
+      toast("pos", useful
+        ? `נשמרו ${nf.format(r.rows)} שורות, ו־${useful} מודלים אומנו מחדש על הנתונים שלך.`
+        : `נשמרו ${nf.format(r.rows)} שורות.`);
     }catch(e){
       if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
-      $("upReport").innerHTML = `<div class="box err">${esc(e.message)}</div>`;
+      $("upReport").innerHTML = `<div class="callout neg">${esc(e.message)}</div>`;
     }finally{
       const save = $("upSave");
       if(save) save.textContent = "שמור את החודש הזה";
@@ -1020,7 +1618,13 @@ function wireUploadDeletes(){
   document.querySelectorAll("[data-del]").forEach(btn => {
     btn.onclick = async () => {
       const period = btn.dataset.period;
-      if(!confirm(`למחוק את חודש ${period} ואת כל השורות שלו? אי אפשר לבטל.`)) return;
+      const ok = await confirmDialog({
+        title: `למחוק את חודש ${period}?`,
+        body: "כל השורות של החודש הזה יימחקו, והמודלים יאומנו מחדש על מה שנשאר. "
+            + "אי אפשר לבטל את הפעולה.",
+        confirmText: "מחק את החודש",
+      });
+      if(!ok) return;
       btn.disabled = true; btn.textContent = "מוחק…";
       try{
         const s = loadSession();
@@ -1031,10 +1635,10 @@ function wireUploadDeletes(){
         if(!res.ok) throw new Error("המחיקה נכשלה");
         [ME, INSIGHTS] = await Promise.all([api("/api/me"), api("/api/insights")]);
         render();
+        toast("pos", `חודש ${period} נמחק.`);
       }catch(e){
         btn.disabled = false; btn.textContent = "מחק חודש";
-        $("upReport") ? $("upReport").innerHTML = `<div class="box err">${esc(e.message)}</div>`
-                      : alert(e.message);
+        toast("neg", e.message);
       }
     };
   });
@@ -1049,12 +1653,13 @@ PAGES.profile = () => {
     <div class="table-wrap"><table><tbody>
       <tr><th style="width:190px">חברה</th><td>
         <span id="coName">${c ? esc(c.name) : na()}</span>
-        <button class="linkbtn" id="coEdit" style="margin-inline-start:10px">שנה שם</button>
+        <button class="btn btn-ghost btn-sm" id="coEdit"
+                style="margin-inline-start:8px">שנה שם</button>
         <span id="coForm" class="hidden" style="display:flex;gap:8px;align-items:center">
           <input id="coInput" type="text" maxlength="120" style="max-width:260px"
                  value="${c ? esc(c.name) : ""}" aria-label="שם החברה">
-          <button class="ghost" id="coSave" style="color:var(--brand-ink)">שמור</button>
-          <button class="ghost" id="coCancel" style="color:var(--muted)">ביטול</button>
+          <button class="btn btn-primary btn-sm" id="coSave">שמור</button>
+          <button class="btn btn-secondary btn-sm" id="coCancel">ביטול</button>
         </span>
         <span id="coMsg" class="n"></span>
       </td></tr>
@@ -1063,14 +1668,39 @@ PAGES.profile = () => {
       <tr><th>תאריך הצטרפות</th><td>${ME.joinedAt ? new Date(ME.joinedAt).toLocaleDateString("he-IL") : na()}</td></tr>
       <tr><th>קמפיינים במערכת</th><td>${num(ME.recordCount)}</td></tr>
     </tbody></table></div>
-    <div class="caveat">הנתונים שלך מבודדים ברמת מסד הנתונים. אף חברה אחרת לא יכולה
+    <div class="callout warn">הנתונים שלך מבודדים ברמת מסד הנתונים. אף חברה אחרת לא יכולה
       לקרוא אותם, גם לא דרך באג בקוד — Postgres מסרב לפני שהשאילתה חוזרת.</div>
   </section>`;
 
-  return head + details + uploadHistoryCard() +
+  const logo = c && c.logo_b64;
+  const logoCard = `<section class="card">
+    <div class="card-head">
+      <div><h2>הלוגו של החברה</h2>
+      <p class="sub">מופיע בראש התפריט במקום הלוגו שלנו, לכל מי שנכנס לסביבת העבודה הזו.</p></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <div id="logoPreview" style="width:150px;height:64px;border:1px solid var(--line);
+           border-radius:var(--r-md);display:grid;place-items:center;background:var(--surface-2);
+           padding:8px;overflow:hidden">
+        ${logo ? `<img src="${esc(logo)}" alt="הלוגו הנוכחי"
+                       style="max-width:100%;max-height:100%;object-fit:contain">`
+               : `<span class="note" style="margin:0">אין לוגו</span>`}
+      </div>
+      <div class="row-actions" style="margin:0">
+        <button class="btn btn-secondary" id="logoPick">בחר תמונה</button>
+        ${logo ? `<button class="btn btn-danger" id="logoClear">הסר</button>` : ""}
+      </div>
+    </div>
+    <input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+    <p class="hint" style="margin-top:14px">PNG, JPG, WEBP או GIF, עד 300KB.
+       קובצי SVG אינם נתמכים: SVG הוא מסמך שיכול להכיל קוד, וזו התמונה היחידה
+       במערכת שמישהו אחד מעלה ואחרים רואים בדפדפן שלהם.</p>
+  </section>`;
+
+  return head + details + logoCard + uploadHistoryCard() +
     `<section class="card"><h2>יציאה</h2>
        <p class="sub">ההתנתקות מוחקת את פרטי ההתחברות מהדפדפן הזה בלבד.</p>
-       <button class="primary" id="logoutBtn2" style="max-width:220px">התנתקות</button></section>`;
+       <button class="btn btn-primary" id="logoutBtn2" style="max-width:220px">התנתקות</button></section>`;
 };
 
 /* --------------------------------------------------------------- routing */
@@ -1087,7 +1717,6 @@ function render(){
     if(a.dataset.page === page) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   });
-  $("pageBody").className = "";
   $("pageBody").innerHTML = PAGES[page]();
   // Moving focus to the new heading is what makes the page change audible to a
   // screen reader; without it the reader stays where the old link was and the
@@ -1098,7 +1727,7 @@ function render(){
   if(page === "data" && !INSIGHTS.empty) fillSample();
   if(page === "predict" && !INSIGHTS.empty){ wirePredict(); renderModelCard(); }
   if(page === "upload") wireUpload();
-  if(page === "profile"){ wireUploadDeletes(); wireRename(); }
+  if(page === "profile"){ wireUploadDeletes(); wireRename(); wireLogo(); }
   const lo2 = $("logoutBtn2");
   if(lo2) lo2.onclick = logout;
 }
@@ -1167,12 +1796,13 @@ function wirePredict(){
   const score = async () => {
     const id = $("recSel").value;
     if(!id) return;
-    $("predOut").innerHTML = '<p class="loading">מחשב…</p>';
+    $("predOut").innerHTML =
+      `<div class="pred">${Array.from({length:4}, () => '<div class="skeleton sk-tile"></div>').join("")}</div>`;
     try{
       renderPrediction(await api("/api/predict/" + id));
     }catch(e){
       if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
-      $("predOut").innerHTML = `<div class="msg err" style="display:block">${esc(e.message)}</div>`;
+      $("predOut").innerHTML = `<div class="callout neg">${esc(e.message)}</div>`;
     }
   };
 
@@ -1199,7 +1829,7 @@ async function renderModelCard(){
          ${num(data.minRows)} קמפיינים. מתחת לזה המודל לא מדויק יותר מלנחש
          את הממוצע — וגם המדידה של כמה הוא מדויק אינה יציבה בכמות כזו.
          שאר העמודים עובדים כרגיל בכל כמות.</p>
-      <p style="margin-top:16px"><a class="btnlink" href="#/upload">להעלאת עוד נתונים ←</a></p>
+      <p style="margin-top:16px"><a class="btn btn-primary" href="#/upload">להעלאת עוד נתונים ←</a></p>
     </section>`;
     return;
   }
@@ -1212,8 +1842,8 @@ async function renderModelCard(){
       ? (m.target === "ltv_months" ? " חודשים" : " ₪")
       : "";
     const verdict = m.useful
-      ? `<span class="pill yes">טוב ב־${m.betterByPct}% מניחוש</span>`
-      : `<span class="pill" style="background:var(--bad-soft);color:var(--bad)">לא עדיף על ניחוש</span>`;
+      ? `<span class="badge pos">טוב ב־${m.betterByPct}% מניחוש</span>`
+      : `<span class="badge neg">לא עדיף על ניחוש</span>`;
     return `<tr>
       <td><strong>${esc(TARGET_LABEL[m.target] || m.target)}</strong>
           <div class="n">${esc(m.note)}</div></td>
@@ -1262,7 +1892,7 @@ function renderPrediction(d){
       // No number at all. A greyed-out figure with a warning beside it still
       // reads as a prediction, and this one is not.
       return `<div class="tile"><div class="k">${esc(label)}</div>
-        <div class="v" style="font-size:16px;color:var(--muted)">אין תחזית</div>
+        <div class="v" style="font-size:16px;color:var(--text-2)">אין תחזית</div>
         <div class="n">${esc(p.note)}</div>
         ${actual ? `<div class="actual">בפועל: ${actual}</div>` : ""}</div>`;
     }
@@ -1313,8 +1943,7 @@ async function showApp(){
   $("loginView").classList.add("hidden");
   $("appView").classList.remove("hidden");
   $("who").textContent = s.email || "";
-  $("pageBody").className = "loading";
-  $("pageBody").textContent = "טוען…";
+  $("pageBody").innerHTML = skeleton();
   // The first authenticated request after a deploy is the one that fills the
   // server's key cache, and it is therefore the one most likely to meet a
   // network blip. Reloading the page fixed it, which means one quiet retry
@@ -1323,14 +1952,14 @@ async function showApp(){
     [ME, INSIGHTS] = await load(2);
   }catch(e){
     if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
-    $("pageBody").className = "";
     $("pageBody").innerHTML =
       `<div class="card"><h2>לא הצלחנו לטעון את הנתונים</h2>
        <p class="sub">${esc(e.message)}</p>
-       <button class="primary" style="max-width:200px" id="retryBtn">נסה שוב</button></div>`;
+       <button class="btn btn-primary" id="retryBtn">נסה שוב</button></div>`;
     $("retryBtn").onclick = showApp;
     return;
   }
+  paintIdentity();
   if(!location.hash) location.hash = "#/home";
   render();
 }
@@ -1406,6 +2035,10 @@ $("loginForm").addEventListener("submit", async (e) => {
     btn.disabled = false; btn.textContent = label;
   }
 });
+
+$("themeBtn").onclick = toggleTheme;
+initTheme();
+initNavDrawer();
 
 // A live session survives a refresh; anything else lands on the login screen.
 if(loadSession()) showApp(); else showLogin();
