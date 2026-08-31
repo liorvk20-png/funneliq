@@ -147,13 +147,92 @@ def login(payload: dict):
     return _session(result)
 
 
+@app.post("/api/password/forgot")
+def forgot_password(payload: dict):
+    """
+    Start a password reset.
+
+    Always answers the same way, whether or not the address has an account.
+    Anything else turns this endpoint into a membership check: type an address,
+    read the response, learn whether that person uses the product. The person
+    who does have an account gets the email; the person probing gets nothing to
+    read.
+    """
+    email = str(payload.get("email", "")).strip()
+    if not email or "@" not in email:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש להזין כתובת אימייל תקינה.")
+    try:
+        get_anon_client().auth.reset_password_for_email(
+            email, {"redirect_to": str(payload.get("redirectTo") or "").strip() or None})
+    except Exception as exc:
+        # A rate limit or a mail failure is worth knowing about; it is not worth
+        # telling the caller, for the same reason as above.
+        log.warning("password reset for %s failed: %s", email, exc)
+    return {"sent": True}
+
+
+@app.post("/api/password/reset")
+def reset_password(payload: dict):
+    """
+    Finish a reset, using the recovery session the emailed link created.
+
+    The token comes from the URL fragment the link lands on, so the browser
+    holds it and never sends it anywhere but here. Supabase enforces its own
+    expiry; this endpoint only enforces that a password was actually chosen.
+    """
+    token = str(payload.get("accessToken", "")).strip()
+    password = str(payload.get("password", ""))
+    if not token:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "קישור האיפוס אינו תקין או שפג תוקפו.")
+    if len(password) < 6:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "הסיסמה קצרה מדי. נדרשים לפחות 6 תווים.")
+    client = get_anon_client()
+    try:
+        client.auth.set_session(token, token)
+        client.auth.update_user({"password": password})
+    except Exception as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            translate(str(getattr(exc, "message", exc)))) from None
+    return {"updated": True}
+
+
+@app.get("/api/auth/providers")
+def auth_providers():
+    """
+    Which social sign-ins are actually configured.
+
+    Read from Supabase rather than hard-coded, so the buttons on the sign-in
+    screen match reality. A Google button that leads to a provider nobody has
+    set up is worse than no button: it fails after the person has already
+    decided to trust it.
+    """
+    try:
+        settings = get_anon_client().auth._request("GET", "settings").json()
+    except Exception:
+        log.exception("could not read auth settings")
+        return {"providers": []}
+    external = settings.get("external", {}) or {}
+    return {"providers": [name for name in ("google", "apple")
+                          if external.get(name)],
+            "supabaseUrl": require_env("SUPABASE_URL")}
+
+
 @app.post("/api/signup")
 def signup(payload: dict):
     email = str(payload.get("email", "")).strip()
     password = str(payload.get("password", ""))
     company = str(payload.get("company", "")).strip()
-    if not email or not password or not company:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש למלא את כל השדות.")
+    invitation = str(payload.get("invitationCode", "")).strip()
+
+    # Two ways in, and they need different fields. Someone opening a workspace
+    # names their company; someone joining one has a code instead and must not
+    # be asked to invent a company name they would then be the only member of.
+    if not email or not password:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש למלא אימייל וסיסמה.")
+    if not invitation and not company:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש להזין שם חברה.")
     if len(company) > 120:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
                             "שם החברה ארוך מדי (עד 120 תווים).")
@@ -164,7 +243,8 @@ def signup(payload: dict):
         # named after its email domain.
         result = get_anon_client().auth.sign_up({
             "email": email, "password": password,
-            "options": {"data": {"company_name": company}},
+            "options": {"data": {"company_name": company,
+                                 "invitation_code": invitation}},
         })
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
@@ -510,6 +590,9 @@ def me(token: str = Depends(get_current_user_token)):
     return {
         "email": profile["email"],
         "role": profile["role"],
+        # Stated once, here, so the interface never has to work it out from the
+        # role string in six places and get it wrong in one of them.
+        "canManage": profile["role"] == "admin",
         "joinedAt": profile["created_at"],
         "company": company,
         "recordCount": records.count or 0,
@@ -912,6 +995,102 @@ def _check_logo(value) -> str | None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
                             "הקובץ לא נקרא כתמונה תקינה.") from None
     return text
+
+
+@app.get("/api/seats")
+def seats(token: str = Depends(get_current_user_token)):
+    """
+    Who is in this workspace, and who has been invited into it.
+
+    Colleagues are visible to everyone -- knowing who else can see the data is
+    part of trusting the workspace. Open invitations are visible only to an
+    admin, because they carry the code that lets someone in, and RLS is what
+    enforces that rather than a branch here.
+    """
+    client = get_user_client(token)
+    members = (client.table("profiles").select("user_id,email,role,created_at")
+               .order("created_at").execute().data)
+    try:
+        pending = (client.table("invitations")
+                   .select("invitation_id,email,role,code,status,expires_at,created_at")
+                   .eq("status", "pending").order("created_at", desc=True)
+                   .execute().data)
+    except Exception:
+        pending = []
+    return {"members": members, "invitations": pending,
+            "role": _my_role(client)}
+
+
+def _my_role(client) -> str | None:
+    rows = client.table("profiles").select("role").execute().data
+    mine = [r for r in rows if r.get("role")]
+    return mine[0]["role"] if mine else None
+
+
+@app.post("/api/seats")
+def invite_seat(payload: dict, token: str = Depends(get_current_user_token)):
+    """
+    Open a seat for a colleague.
+
+    The code is generated by the database, not here, and the invitation is tied
+    to the address it was issued to: the sign-up trigger compares them, so a
+    code that leaks cannot be redeemed by anyone else.
+    """
+    email = str(payload.get("email", "")).strip().lower()
+    role = str(payload.get("role", "viewer")).strip()
+    if "@" not in email:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש להזין כתובת אימייל תקינה.")
+    if role not in ("admin", "viewer"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "הרשאה לא מוכרת.")
+
+    client = get_user_client(token)
+    if _my_role(client) != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN,
+                            "רק מנהל סביבת העבודה יכול להזמין קולגות.")
+
+    company_id = _company_id(client)
+    already = [m for m in client.table("profiles").select("email").execute().data
+               if (m.get("email") or "").lower() == email]
+    if already:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "האדם הזה כבר חבר בסביבת העבודה.")
+    try:
+        created = client.table("invitations").insert({
+            "company_id": company_id, "email": email, "role": role,
+        }).execute().data
+    except Exception as exc:
+        message = str(exc)
+        if "invitations_one_open_per_email" in message:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "כבר קיימת הזמנה פתוחה לכתובת הזו. אפשר לבטל אותה וליצור חדשה.",
+            ) from None
+        # The same forward-compatibility problem the logo column had: a deploy
+        # that lands before its migration should say which migration, not hand
+        # back a stack-trace reference the person cannot act on.
+        if "invitations" in message and "schema cache" in message:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "הזמנת קולגות עדיין לא זמינה: יש להריץ את "
+                "migrations/008_seats_and_invites.sql.",
+            ) from None
+        raise
+    return created[0]
+
+
+@app.delete("/api/seats/{invitation_id}")
+def revoke_seat(invitation_id: str, token: str = Depends(get_current_user_token)):
+    """Withdraw an invitation. The code stops working immediately."""
+    client = get_user_client(token)
+    if _my_role(client) != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN,
+                            "רק מנהל סביבת העבודה יכול לבטל הזמנות.")
+    updated = (client.table("invitations").update({"status": "revoked"})
+               .eq("invitation_id", invitation_id).eq("status", "pending")
+               .execute().data)
+    if not updated:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "אין הזמנה פתוחה כזו.")
+    return {"revoked": invitation_id}
 
 
 @app.patch("/api/company")

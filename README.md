@@ -53,7 +53,8 @@ scripts/        CSV loader
 migrations/     schema history; 002 turns one company into an engine anyone can join,
                 003 backfills workspaces for accounts that predate the trigger,
                 004 lets a company rename itself, 005 stores its own models,
-                006 stores its logo, 007 adds findings and narrative
+                006 stores its logo, 007 adds findings and narrative,
+                008 adds seats and invitations
 ```
 
 ## Running it locally
@@ -110,6 +111,57 @@ are toasts, and destructive actions get a real dialog with a focus trap.
 is not laziness: PostgREST rejects the entire query if one named column is
 missing, and `/api/me` runs on every sign-in — naming `logo_b64` there took the
 product down for every user between a deploy and its migration. A test pins it.
+
+## Social sign-in (Google, Apple)
+
+The code is in place and the buttons are drawn from `/api/auth/providers`,
+which reads what Supabase actually has configured. Nothing is hard-coded: an
+unconfigured provider shows no button, because a button that leads nowhere
+fails after the person has already decided to trust it.
+
+Turning them on is configuration, not code, and it has to be done by whoever
+owns the accounts:
+
+**Google** — free.
+1. Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID
+   → Web application.
+2. Authorised redirect URI: `https://<project>.supabase.co/auth/v1/callback`.
+3. Supabase → Authentication → Sign In / Providers → Google → paste the client
+   ID and secret, enable, save.
+
+This also covers Android: "sign in with Android" is sign in with Google.
+
+**Apple** — needs a paid Apple Developer account (about $99/year).
+1. Apple Developer → Certificates, Identifiers & Profiles → an App ID, a
+   Services ID, and a Sign in with Apple key.
+2. Return URL: `https://<project>.supabase.co/auth/v1/callback`.
+3. Supabase → Authentication → Sign In / Providers → Apple → paste the Services
+   ID, Team ID, Key ID and the key file, enable, save.
+
+Nothing in this repository changes for either. The buttons appear on their own
+once the provider is enabled, because the endpoint reports it.
+
+## Seats
+
+A company is no longer one person. `migrations/008_seats_and_invites.sql` adds
+invitations and splits what a role may do:
+
+- **Admin** — uploads files, deletes months, renames the company, changes the
+  logo, invites and removes colleagues.
+- **Viewer** — sees everything an admin sees, and changes nothing.
+
+Reading is deliberately identical for both. A colleague given a seat can see
+the whole workspace, which is the point of the seat; the difference is writing,
+and it is enforced by RLS policies rather than by the interface hiding buttons.
+
+An invitation is a code tied to one address. The sign-up trigger compares the
+two, so a leaked code cannot be redeemed by anyone else, and a code that is
+missing, expired, spent or issued to a different address falls through to
+creating a new company rather than refusing the sign-up — someone with a
+mistyped code can still register, and can always be invited again.
+
+`public.current_member_role()` is named that way because `current_role` is a
+reserved SQL keyword returning the connection's database role.
 
 ## Simulating a customer
 
