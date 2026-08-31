@@ -341,6 +341,33 @@ select{appearance:none;text-overflow:ellipsis;
 .mp-cell.on{background:var(--brand);color:var(--on-brand)}
 .mp-cell[disabled]{opacity:.35;cursor:not-allowed}
 
+.legal-links{margin-top:var(--s-5);text-align:center;font-size:var(--t-sm);
+             color:var(--text-3);display:flex;gap:10px;justify-content:center}
+.linky{background:none;border:0;padding:0;font:inherit;font-size:var(--t-sm);
+       color:var(--brand-ink);cursor:pointer;text-decoration:underline;
+       text-underline-offset:2px}
+.legal-scrim{display:grid;place-items:center;padding:var(--s-5);overflow:auto}
+.legal{max-width:640px;margin:0;max-height:86vh;overflow:auto;
+       box-shadow:var(--sh-lg)}
+.legal h3:first-of-type{margin-top:0}
+
+.member{display:flex;align-items:center;gap:11px}
+.member-text{display:flex;flex-direction:column;gap:1px;min-width:0}
+.member-text b{font-size:var(--t-md)}
+.member-text span{font-size:var(--t-xs);color:var(--text-3)}
+td .n{font-size:var(--t-xs);color:var(--text-3);margin-top:3px;white-space:normal;
+      max-width:34ch}
+
+.two-up{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-3)}
+@media (max-width:420px){.two-up{grid-template-columns:1fr}}
+.pw-rules{list-style:none;margin:var(--s-3) 0 0;padding:0;display:flex;
+          flex-wrap:wrap;gap:6px 14px;font-size:var(--t-xs);color:var(--text-3)}
+.pw-rules li{display:flex;align-items:center;gap:5px}
+.pw-rules li.on{color:var(--pos-700)}
+.pw-mark{font-weight:700}
+.hint.ok{color:var(--pos-700)}
+.hint.bad{color:var(--neg)}
+
 .pw{position:relative}
 .pw input{padding-inline-start:66px}
 .pw button{position:absolute;inset-inline-start:5px;top:50%;transform:translateY(-50%);
@@ -536,10 +563,17 @@ main{padding:var(--s-8) var(--s-10) var(--s-16);max-width:1180px;width:100%}
      cursor:pointer;padding:0;line-height:1;margin-inline-start:6px;
      vertical-align:middle}
 .why:hover{border-color:var(--brand);color:var(--brand-ink)}
-.why-pop{position:absolute;z-index:40;max-width:280px;background:var(--n-800);
-         color:#fff;padding:10px 13px;border-radius:var(--r-sm);
-         font-size:var(--t-sm);font-weight:400;line-height:1.6;
-         box-shadow:var(--sh-lg);margin-top:6px;inset-inline-start:0}
+/* Anchored to the card rather than to the button, and wide enough for the
+   sentence it holds. Pinned to the button it overflowed the tile and the text
+   simply disappeared. */
+.why-pop{position:absolute;z-index:60;width:max-content;max-width:min(320px,80vw);
+         background:var(--n-800);color:#fff;padding:11px 14px;
+         border-radius:var(--r-sm);font-size:var(--t-sm);font-weight:400;
+         line-height:1.65;box-shadow:var(--sh-lg);
+         inset-inline-start:var(--s-5);margin-top:26px;white-space:normal;
+         text-align:start}
+:root[data-theme="dark"] .why-pop{background:var(--n-100);color:var(--n-900)}
+.tile,.card>h2,.band{position:relative}
 
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:var(--s-4)}
 .chip{padding:7px 15px;border:1px solid var(--line-strong);border-radius:var(--r-full);
@@ -767,6 +801,50 @@ details[open]>summary::before{transform:rotate(-90deg)}
       </label>
     </fieldset>
 
+    <div id="signupFields" class="hidden">
+      <div class="field">
+        <label for="fullName">שם מלא</label>
+        <input id="fullName" type="text" autocomplete="name">
+      </div>
+      <div class="two-up">
+        <div class="field">
+          <label for="jobTitle">תפקיד</label>
+          <input id="jobTitle" type="text" autocomplete="organization-title"
+                 placeholder="מנהל/ת מדיה, אנליסט/ית, סמנכ״ל/ית שיווק">
+        </div>
+        <div class="field">
+          <label for="phone">טלפון</label>
+          <input id="phone" type="tel" autocomplete="tel" dir="ltr">
+        </div>
+      </div>
+      <div class="two-up">
+        <div class="field">
+          <label for="birthYear">שנת לידה</label>
+          <input id="birthYear" type="number" min="1900" max="2100" step="1"
+                 inputmode="numeric" autocomplete="bday-year" dir="ltr">
+        </div>
+        <div class="field">
+          <label for="gender">מין</label>
+          <select id="gender">
+            <option value="undisclosed">מעדיף/ה לא לציין</option>
+            <option value="female">נקבה</option>
+            <option value="male">זכר</option>
+            <option value="other">אחר</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="requestedRole">הרשאה מבוקשת</label>
+        <select id="requestedRole">
+          <option value="admin">ניהול מלא — נתונים ומשתמשים</option>
+          <option value="editor" selected>עריכה — ייבוא ועריכת נתונים</option>
+          <option value="viewer">צפייה בלבד</option>
+        </select>
+        <p class="hint">בקשה בלבד. פותח/ת סביבת עבודה מקבל/ת ניהול מלא;
+           מצטרף/ת בהזמנה מקבל/ת את ההרשאה שנקבעה בהזמנה.</p>
+      </div>
+    </div>
+
     <div id="inviteField" class="field hidden">
       <label for="inviteCode">קוד הזמנה</label>
       <input id="inviteCode" type="text" autocomplete="one-time-code" spellcheck="false">
@@ -788,10 +866,17 @@ details[open]>summary::before{transform:rotate(-90deg)}
     <div class="field">
       <label for="password">סיסמה</label>
       <div class="pw">
-        <input id="password" type="password" autocomplete="current-password" required minlength="6">
+        <input id="password" type="password" autocomplete="current-password" required>
         <button type="button" id="pwToggle" aria-pressed="false"
                 aria-label="הצג סיסמה" title="הצג סיסמה">הצג</button>
       </div>
+      <div id="pwRulesBox" class="hidden"></div>
+    </div>
+
+    <div id="confirmField" class="field hidden">
+      <label for="passwordConfirm">אימות סיסמה</label>
+      <input id="passwordConfirm" type="password" autocomplete="new-password">
+      <p class="hint" id="pwMatch"></p>
     </div>
 
     <button type="submit" class="btn btn-primary btn-block" id="loginBtn">כניסה</button>
@@ -800,6 +885,7 @@ details[open]>summary::before{transform:rotate(-90deg)}
     </p>
     <div class="msg err" id="loginErr" role="alert"></div>
     <div class="msg ok" id="loginOk" role="status"></div>
+    <div id="legalLinks"></div>
   </form>
 </div>
 
@@ -1533,7 +1619,7 @@ PAGES.advice = () => {
   if(b.best && b.gainPct > 5){
     items.push({
       tint: "t1", tag: "הקצאת תקציב", impact: `+${pct(b.gainPct)} רווח`,
-      title: `הקצאה מחדש לרמת תקציב של ${money(b.best.budgetEach)} לקמפיין`,
+      title: `להעביר את התקציב לקמפיינים בגובה ${money(b.best.budgetEach)}`,
       body: `ההוצאה מפוזרת כיום על פני רמות תקציב שונות. רמת ${money(b.best.budgetEach)}
         מניבה ROAS של ${money(b.best.returnPerShekel)} — הגבוה מבין הרמות הפעילות בחשבון.`,
       // Before against after, because a percentage on its own does not say
@@ -1614,7 +1700,7 @@ PAGES.advice = () => {
     <div class="advice-head">
       <div class="advice-title">
         <span class="badge brand">${esc(item.tag)}</span>
-        <h2>${esc(item.title)}</h2>
+        <h2>${item.title}</h2>
       </div>
       <span class="impact ${item.tint}">${item.impact}</span>
     </div>
@@ -1678,6 +1764,14 @@ PAGES.predict = () => {
 /* Whether the numbers below can be relied on, in one sentence. The measurement
    behind it is the same one as before; what changed is that the measurement
    stays on our side of the screen. */
+/* What each estimate is called, in the reader's own vocabulary. */
+const TARGET_LABEL = {
+  ltv_months: "LTV צפוי",
+  cumulative_profit: "רווח צפוי",
+  upsell: "סיכוי למכירה נוספת",
+  referred: "סיכוי להפניה",
+};
+
 async function renderModelCard(){
   const box = $("modelCard");
   if(!box) return;
@@ -1830,13 +1924,13 @@ PAGES.budget = () => {
       ${comparison(
         { label: "התמהיל הנוכחי", profit: b.current.expectedProfit,
           roas: b.current.returnPerShekel },
-        { label: `הקצאה ל־${money(b.best.budgetEach)} לקמפיין`,
+        { label: `קמפיינים בגובה ${money(b.best.budgetEach)}`,
           profit: b.best.expectedProfit, roas: b.best.returnPerShekel },
         b.gainPct)}
       <details style="margin-top:var(--s-5)">
         <summary>פירוט מלא לפי רמת תקציב</summary>
         <div class="table-wrap" style="margin-top:var(--s-3)"><table><thead><tr>
-          <th>רמת תקציב</th><th>מספר קמפיינים</th><th>רווח צפוי</th><th>ROAS</th>
+          <th>גובה קמפיין</th><th>כמה קמפיינים</th><th>רווח צפוי</th><th>ROAS</th>
         </tr></thead><tbody>
           ${b.strategies.map((x, i) => `<tr class="${i === 0 ? "pos" : ""}">
             <td>${money(x.budgetEach)}</td><td>${num(x.campaigns)}</td>
@@ -1852,10 +1946,15 @@ PAGES.budget = () => {
 
 /* Before and against after, side by side. A percentage on its own tells nobody
    what it is a percentage of. */
+/* `label` arrives already formatted -- it carries a money() figure, which is
+   wrapped in a <bdi> so the currency sign stays on the right side of the digits
+   inside Hebrew. Escaping it printed the tag on screen. These strings are
+   written here, never by a customer, so they are inserted as the markup they
+   are. */
 function comparison(before, after, gainPct){
   return `<div class="compare">
     <div class="compare-side">
-      <span class="compare-cap">${esc(before.label)}</span>
+      <span class="compare-cap">${before.label}</span>
       <span class="compare-num">${money(before.profit)}</span>
       <span class="compare-sub">ROAS ${money(before.roas)}</span>
     </div>
@@ -1865,7 +1964,7 @@ function comparison(before, after, gainPct){
         <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
     </div>
     <div class="compare-side is-after">
-      <span class="compare-cap">${esc(after.label)}</span>
+      <span class="compare-cap">${after.label}</span>
       <span class="compare-num">${money(after.profit)}</span>
       <span class="compare-sub">ROAS ${money(after.roas)}</span>
     </div>
@@ -2724,22 +2823,31 @@ function profileAccount(){
         </span>
       </td></tr>
       <tr><th>אימייל</th><td><bdi dir="ltr">${esc(ME.email || "")}</bdi></td></tr>
-      <tr><th>הרשאה</th><td>${ME.canManage
-        ? '<span class="badge brand">מנהל סביבת עבודה</span>'
-        : '<span class="badge mute">צפייה בלבד</span>'}</td></tr>
+      <tr><th>שם מלא</th><td>${esc(ME.fullName || "—")}</td></tr>
+      <tr><th>תפקיד</th><td>${esc(ME.jobTitle || "לא צוין")}</td></tr>
+      <tr><th>הרשאה</th><td>
+        <span class="badge ${roleOf(ME.role).badge}">${esc(roleOf(ME.role).name)}</span>
+        <div class="n">${esc(roleOf(ME.role).can)}</div></td></tr>
       <tr><th>תאריך הצטרפות</th><td>${ME.joinedAt
         ? new Date(ME.joinedAt).toLocaleDateString("he-IL") : na()}</td></tr>
       <tr><th>קמפיינים במערכת</th><td>${num(ME.recordCount)}</td></tr>
     </tbody></table></div>
-    <div class="callout warn" style="margin-top:20px;margin-bottom:0">הנתונים שלך
-      מבודדים ברמת מסד הנתונים. אף חברה אחרת לא יכולה לקרוא אותם, גם לא דרך באג
-      בקוד — Postgres מסרב לפני שהשאילתה חוזרת.</div>
   </section>
   <section class="card"><h2>יציאה</h2>
     <p class="sub">ההתנתקות מוחקת את פרטי ההתחברות מהדפדפן הזה בלבד.</p>
     <button class="btn btn-secondary" id="logoutBtn2">התנתקות</button>
   </section>`;
 }
+
+const ROLE_LABEL = {
+  admin: { name: "ניהול מלא", badge: "brand",
+           can: "ייבוא ועריכת נתונים, ניהול משתמשים והגדרות הארגון" },
+  editor: { name: "עריכה", badge: "pos",
+            can: "ייבוא ועריכת נתונים. אינו מנהל משתמשים" },
+  viewer: { name: "צפייה", badge: "mute",
+            can: "צפייה בכל הנתונים והדוחות. אינו משנה דבר" },
+};
+const roleOf = (key) => ROLE_LABEL[key] || ROLE_LABEL.viewer;
 
 function profileSeats(){
   if(!ME.canManage){
@@ -2749,13 +2857,25 @@ function profileSeats(){
   }
   if(!SEATS) return `<section class="card">${skeletonRows(3)}</section>`;
 
-  const members = SEATS.members.map(m => `<tr>
-    <td><bdi dir="ltr">${esc(m.email || "")}</bdi>${
-      (m.email || "") === ME.email ? ' <span class="badge mute">אתה</span>' : ""}</td>
-    <td>${m.role === "admin" ? '<span class="badge brand">מנהל</span>'
-                             : '<span class="badge mute">צפייה</span>'}</td>
-    <td>${new Date(m.created_at).toLocaleDateString("he-IL")}</td>
-  </tr>`).join("");
+  const members = SEATS.members.map(m => {
+    const role = roleOf(m.role);
+    return `<tr>
+      <td>
+        <div class="member">
+          <span class="avatar" aria-hidden="true">${esc(initials(m.full_name || m.email))}</span>
+          <span class="member-text">
+            <b>${esc(m.full_name || "—")}${
+              (m.email || "") === ME.email ? ' <span class="badge mute">זה החשבון שלך</span>' : ""}</b>
+            <span>${esc(m.job_title || "לא צוין תפקיד")}</span>
+            <span><bdi dir="ltr">${esc(m.email || "")}</bdi></span>
+          </span>
+        </div>
+      </td>
+      <td><span class="badge ${role.badge}">${esc(role.name)}</span>
+          <div class="n">${esc(role.can)}</div></td>
+      <td>${new Date(m.created_at).toLocaleDateString("he-IL")}</td>
+    </tr>`;
+  }).join("");
 
   const pending = SEATS.invitations.length ? `
     <h3 class="sub-head">הזמנות פתוחות</h3>
@@ -2765,7 +2885,7 @@ function profileSeats(){
       <th>אימייל</th><th>הרשאה</th><th>קוד</th><th>בתוקף עד</th><th></th>
     </tr></thead><tbody>${SEATS.invitations.map(i => `<tr>
       <td><bdi dir="ltr">${esc(i.email)}</bdi></td>
-      <td>${i.role === "admin" ? "מנהל" : "צפייה"}</td>
+      <td><span class="badge ${roleOf(i.role).badge}">${esc(roleOf(i.role).name)}</span></td>
       <td><code class="code" data-copy="${esc(i.code)}" role="button" tabindex="0"
                 title="לחץ להעתקה"><bdi dir="ltr">${esc(i.code)}</bdi></code></td>
       <td>${new Date(i.expires_at).toLocaleDateString("he-IL")}</td>
@@ -2779,7 +2899,7 @@ function profileSeats(){
          למחוק חודשים ולהזמין אנשים.</p></div>
     </div>
     <div class="table-wrap"><table><thead><tr>
-      <th>אימייל</th><th>הרשאה</th><th>הצטרף</th>
+      <th>חבר/ת צוות</th><th>הרשאה</th><th>הצטרפות</th>
     </tr></thead><tbody>${members}</tbody></table></div>
     ${pending}
   </section>
@@ -2793,8 +2913,9 @@ function profileSeats(){
         <input id="inviteEmail" type="email" autocomplete="off"></div>
       <div><label for="inviteRole">הרשאה</label>
         <select id="inviteRole">
+          <option value="editor" selected>עריכה — ייבוא ועריכת נתונים</option>
           <option value="viewer">צפייה בלבד</option>
-          <option value="admin">מנהל</option>
+          <option value="admin">ניהול מלא — נתונים ומשתמשים</option>
         </select></div>
       <button class="btn btn-primary" id="inviteBtn">צור הזמנה</button>
     </div>
@@ -2867,8 +2988,9 @@ const profileSupport = () => `<section class="card">
       <tr><th>מה כדאי לצרף</th>
           <td>הקובץ שהעלית, החודש שבו מדובר, ומה ציפית לראות</td></tr>
       <tr><th>מספר שגיאה</th>
-          <td>אם ראית הודעת שגיאה עם מספר — צרף אותו, הוא מוביל אותנו ישר לאירוע</td></tr>
+          <td>הודעת שגיאה מלווה במספר איתור — צירופו מוביל ישירות לאירוע</td></tr>
     </tbody></table></div>
+    ${LEGAL_LINKS}
   </section>
   ${comingSoon("חיבורים", "משיכת נתונים אוטומטית במקום העלאה ידנית.",
     ["חיבור ישיר ל־Google Ads",
@@ -2907,6 +3029,7 @@ function wireProfileSection(){
   }
   if(PROFILE_TAB === "brand") wireLogo();
   if(PROFILE_TAB === "seats") wireSeats();
+  wireLegal();
 }
 
 async function wireSeats(){
@@ -3237,6 +3360,176 @@ async function showApp(){
   render();
 }
 
+/* ═══════════════════════════════════════════════ password requirements
+   Shown as the person types rather than after they submit. A rule you only
+   learn about by failing is a rule the form kept to itself. The same five
+   checks run on the server, which is the boundary that matters — this is so
+   nobody meets them for the first time in an error message. */
+
+const PASSWORD_RULES = [
+  ["length", "לפחות 8 תווים", (p) => p.length >= 8],
+  ["upper", "אות גדולה", (p) => /[A-Z֐-׿]/.test(p) && /[A-Z]/.test(p)],
+  ["lower", "אות קטנה", (p) => /[a-z]/.test(p)],
+  ["digit", "ספרה", (p) => /[0-9]/.test(p)],
+  ["symbol", "סימן מיוחד", (p) => /[^A-Za-z0-9]/.test(p)],
+];
+
+function passwordRulesMarkup(){
+  return `<ul class="pw-rules" id="pwRules" aria-live="polite">
+    ${PASSWORD_RULES.map(([key, text]) => `<li data-rule="${key}">
+      <span class="pw-mark" aria-hidden="true">○</span>${text}</li>`).join("")}
+  </ul>`;
+}
+
+function paintPasswordRules(){
+  const list = $("pwRules");
+  if(!list) return true;
+  const value = $("password").value;
+  let allPass = true;
+  PASSWORD_RULES.forEach(([key, , holds]) => {
+    const item = list.querySelector(`[data-rule="${key}"]`);
+    const ok = holds(value);
+    allPass = allPass && ok;
+    item.classList.toggle("on", ok);
+    item.querySelector(".pw-mark").textContent = ok ? "✓" : "○";
+  });
+  const confirm = $("passwordConfirm");
+  const match = $("pwMatch");
+  if(confirm && match){
+    const filled = confirm.value.length > 0;
+    match.textContent = !filled ? ""
+      : (confirm.value === value ? "הסיסמאות זהות" : "הסיסמאות אינן זהות");
+    match.className = "hint " + (!filled ? "" : (confirm.value === value ? "ok" : "bad"));
+  }
+  return allPass;
+}
+
+/* ═══════════════════════════════════════════════ privacy and accessibility
+   Two documents a company will ask for before it uploads its funnel data, and
+   which nothing else in the product can substitute for. Written plainly and
+   kept short: a policy nobody finishes is a policy nobody agreed to.
+
+   Both are reachable from the sign-in screen as well as from inside, because
+   the question "what happens to our data" is asked before signing up, not
+   after. */
+
+const LEGAL = {
+  privacy: {
+    title: "מדיניות פרטיות",
+    updated: "עודכן: ספטמבר 2026",
+    sections: [
+      ["איזה מידע נשמר",
+       "נתוני הביצועים שהארגון מייבא — תקציב, לידים, המרות ורווח ברמת קמפיין. "
+       + "בנוסף נשמרים פרטי המשתמשים שנרשמו: שם, אימייל, תפקיד, טלפון ופרטים "
+       + "שהוזנו בהרשמה. איננו אוספים מידע מהדפדפן מעבר להעדפת השפה והערכה."],
+      ["מה איננו אוספים",
+       "אין במערכת פרטים מזהים של לידים — לא שמות, לא כתובות אימייל ולא מספרי "
+       + "טלפון של הפונים. הקבצים המיובאים מכילים מספרים מצטברים ברמת הקמפיין "
+       + "בלבד. שדה שנראה כמזהה אישי נחסם אוטומטית מהופעה בדוחות."],
+      ["מי יכול לגשת",
+       "רק משתמשים שהוזמנו לסביבת העבודה של הארגון. ההפרדה נאכפת ברמת מסד "
+       + "הנתונים ולא ברמת הממשק, כך שגם תקלה בקוד אינה חושפת נתונים של ארגון "
+       + "אחר. אנשי הצוות שלנו ניגשים לנתונים רק לפי בקשת תמיכה מפורשת."],
+      ["כמה זמן",
+       "הנתונים נשמרים כל עוד החשבון פעיל. מחיקת תקופה מסירה את שורותיה מיד. "
+       + "בסגירת חשבון נמחקים כל הנתונים והמודלים בתוך 30 יום."],
+      ["למה משמש המידע",
+       "אך ורק להפקת הניתוחים והתחזיות עבור הארגון שייבא אותו. המודלים מאומנים "
+       + "על נתוני הארגון עצמו בלבד — אין אימון חוצה-ארגונים ואין שיתוף נתונים "
+       + "בין לקוחות. איננו מוכרים מידע ואיננו מעבירים אותו למפרסמים."],
+      ["ספקים",
+       "אחסון הנתונים והזדהות המשתמשים מבוססים על Supabase, והאירוח על Railway. "
+       + "שני הספקים פועלים תחת הסכמי עיבוד נתונים סטנדרטיים."],
+      ["הזכויות שלך",
+       "אפשר לבקש עיון, תיקון, ייצוא או מחיקה של הנתונים בכל עת בפנייה לכתובת "
+       + "התמיכה. נענה בתוך 30 יום."],
+    ],
+  },
+  accessibility: {
+    title: "הצהרת נגישות",
+    updated: "עודכן: ספטמבר 2026",
+    sections: [
+      ["רמת הנגישות",
+       "המערכת נבנתה בהתאם להנחיות WCAG 2.1 ברמה AA, ובהתאם לתקן הישראלי "
+       + "ת״י 5568."],
+      ["ניווט במקלדת",
+       "כל הפעולות ניתנות לביצוע במקלדת בלבד. קיים קישור דילוג לתוכן הראשי, "
+       + "סימון מיקוד ברור בכל רכיב, וחלונות דו־שיח לוכדים את המיקוד ונסגרים "
+       + "במקש Escape."],
+      ["קוראי מסך",
+       "לכל גרף קיימת חלופה טקסטואלית המכילה את המספרים עצמם. שינוי עמוד מעביר "
+       + "את המיקוד לכותרת החדשה, והודעות מערכת מוכרזות באזורי aria-live."],
+      ["ניגודיות וטקסט",
+       "צבעי הטקסט עומדים ביחס ניגודיות של 4.5:1 לפחות. ניתן להגדיל את הטקסט "
+       + "עד 200% ללא אובדן תוכן, וקיים מצב תצוגה כהה."],
+      ["תנועה",
+       "המערכת מכבדת את הגדרת מערכת ההפעלה להפחתת תנועה, ומבטלת אנימציות "
+       + "כשהיא פעילה."],
+      ["מגבלות ידועות",
+       "טבלאות רחבות דורשות גלילה אופקית במסכים צרים. אנו פועלים לשיפור."],
+      ["פניות בנושא נגישות",
+       "רכז הנגישות זמין בכתובת accessibility@funneliq.app. נשמח לקבל דיווח על "
+       + "כל קושי, ונטפל בו בהקדם."],
+    ],
+  },
+};
+
+function legalDialog(which){
+  const doc = LEGAL[which];
+  if(!doc) return;
+  const wrap = document.createElement("div");
+  wrap.className = "scrim on legal-scrim";
+  wrap.innerHTML = `
+    <div class="card legal" role="dialog" aria-modal="true" aria-labelledby="legalTitle">
+      <div class="card-head">
+        <div><h2 id="legalTitle">${esc(doc.title)}</h2>
+        <p class="sub">${esc(doc.updated)}</p></div>
+        <button type="button" class="btn btn-ghost btn-icon" data-close aria-label="סגירה">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      ${doc.sections.map(([heading, body]) => `
+        <h3 class="sub-head">${esc(heading)}</h3>
+        <p style="color:var(--text-2);line-height:1.85">${esc(body)}</p>`).join("")}
+    </div>`;
+  const previously = document.activeElement;
+  const close = () => {
+    document.removeEventListener("keydown", onKey);
+    wrap.remove();
+    if(previously && previously.focus) previously.focus();
+  };
+  const onKey = (e) => {
+    if(e.key === "Escape") close();
+    if(e.key === "Tab"){
+      // Focus stays inside: tabbing out of a modal and operating the page
+      // behind it is the classic way these go wrong.
+      const targets = wrap.querySelectorAll("button, [href], [tabindex]:not([tabindex='-1'])");
+      if(!targets.length) return;
+      const first = targets[0], last = targets[targets.length - 1];
+      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    }
+  };
+  wrap.querySelector("[data-close]").onclick = close;
+  wrap.onclick = (e) => { if(e.target === wrap) close(); };
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(wrap);
+  wrap.querySelector("[data-close]").focus();
+}
+
+function wireLegal(){
+  document.querySelectorAll("[data-legal]").forEach(link => {
+    link.onclick = (e) => { e.preventDefault(); legalDialog(link.dataset.legal); };
+  });
+}
+
+const LEGAL_LINKS = `<p class="legal-links">
+  <button type="button" class="linky" data-legal="privacy">מדיניות פרטיות</button>
+  <span aria-hidden="true">·</span>
+  <button type="button" class="linky" data-legal="accessibility">הצהרת נגישות</button>
+</p>`;
+
 /* ══════════════════════════════════════════════════ social sign-in
    The buttons are drawn from what the server says is configured, never from a
    hard-coded list. A Google button that leads to a provider nobody set up is
@@ -3395,6 +3688,11 @@ function setMode(next){
   // the form was ever submitted.
   $("socialBlock").classList.toggle("hidden", !$("socialButtons").children.length);
   $("modeField").classList.toggle("hidden", !up);
+  $("signupFields").classList.toggle("hidden", !up);
+  $("confirmField").classList.toggle("hidden", !up);
+  $("pwRulesBox").classList.toggle("hidden", !up);
+  if(up && !$("pwRules")) $("pwRulesBox").innerHTML = passwordRulesMarkup();
+  ["fullName", "passwordConfirm"].forEach(id => { $(id).required = up; });
   $("forgotRow").classList.toggle("hidden", up);
   applyJoinMode();
   $("email").type = up ? "email" : "text";
@@ -3442,6 +3740,12 @@ document.querySelectorAll('input[name="joinMode"]').forEach(radio => {
   radio.onchange = applyJoinMode;
 });
 $("forgotBtn").onclick = showForgot;
+$("legalLinks").innerHTML = LEGAL_LINKS;
+wireLegal();
+$("password").addEventListener("input", () => {
+  if(mode() === "signup") paintPasswordRules();
+});
+$("passwordConfirm").addEventListener("input", paintPasswordRules);
 paintProviders();
 
 $("tabSignIn").onclick = () => setMode("signin");
@@ -3459,8 +3763,15 @@ $("loginForm").addEventListener("submit", async (e) => {
     if(mode() === "signup"){
       const data = await post("/api/signup", {
         email, password: $("password").value,
+        passwordConfirm: $("passwordConfirm").value,
         company: joining() ? "" : $("company").value.trim(),
         invitationCode: joining() ? $("inviteCode").value.trim() : "",
+        fullName: $("fullName").value.trim(),
+        jobTitle: $("jobTitle").value.trim(),
+        phone: $("phone").value.trim(),
+        gender: $("gender").value,
+        birthYear: $("birthYear").value.trim(),
+        requestedRole: $("requestedRole").value,
       });
       if(data.access_token){
         saveSession(data);

@@ -187,7 +187,9 @@ def test_signing_up_needs_a_company_or_an_invitation():
     second workspace with a single member, which is what the invitation exists
     to prevent.
     """
-    r = client.post("/api/signup", json={"email": "a@b.com", "password": "secret123"})
+    complete = {"email": "a@b.com", "password": "Secret123!",
+                "passwordConfirm": "Secret123!", "fullName": "דנה כהן"}
+    r = client.post("/api/signup", json=complete)
     assert r.status_code == 400
     assert "חברה" in r.json()["detail"]
 
@@ -201,3 +203,66 @@ def test_a_bad_invitation_is_refused(body, unreachable_jwks_stubbed):
     """The token check runs first, which is the order that keeps an
     unauthenticated caller away from the parser."""
     assert client.post("/api/seats", json=body).status_code == 401
+
+
+# ------------------------------------------------------- password strength
+@pytest.mark.parametrize("password,missing", [
+    ("Short1!", "8 תווים"),
+    ("alllowercase1!", "אות גדולה"),
+    ("ALLUPPERCASE1!", "אות קטנה"),
+    ("NoDigitsHere!", "ספרה"),
+    ("NoSymbol1here", "סימן"),
+])
+def test_a_weak_password_is_refused_and_says_what_is_missing(password, missing):
+    """
+    Naming the rule that failed is the difference between a person fixing it
+    and a person guessing. All five are also shown as they type, so nobody
+    meets them for the first time in an error.
+    """
+    r = client.post("/api/signup", json={
+        "email": "a@b.com", "password": password, "passwordConfirm": password,
+        "fullName": "דנה כהן", "company": "חברה"})
+    assert r.status_code == 400
+    assert missing in r.json()["detail"]
+
+
+def test_the_two_password_fields_have_to_agree():
+    r = client.post("/api/signup", json={
+        "email": "a@b.com", "password": "Secret123!", "passwordConfirm": "Secret124!",
+        "fullName": "דנה כהן", "company": "חברה"})
+    assert r.status_code == 400 and "זהות" in r.json()["detail"]
+
+
+def test_signing_up_needs_a_name():
+    """The workspace lists people by name; an address is what a colleague
+    already knows and the least useful thing for telling them apart."""
+    r = client.post("/api/signup", json={
+        "email": "a@b.com", "password": "Secret123!",
+        "passwordConfirm": "Secret123!", "company": "חברה"})
+    assert r.status_code == 400 and "שם מלא" in r.json()["detail"]
+
+
+@pytest.mark.parametrize("field,value", [
+    ("gender", "unicorn"),
+    ("birthYear", "1066"),
+    ("requestedRole", "superuser"),
+])
+def test_an_unknown_value_in_a_profile_field_is_refused(field, value):
+    body = {"email": "a@b.com", "password": "Secret123!",
+            "passwordConfirm": "Secret123!", "fullName": "דנה כהן",
+            "company": "חברה", field: value}
+    assert client.post("/api/signup", json=body).status_code == 400
+
+
+def test_a_requested_role_is_a_request_and_not_a_grant():
+    """
+    A field the applicant fills in cannot decide their own access. Whoever
+    opens a workspace administers it; whoever joins gets what their invitation
+    carries.
+    """
+    from pathlib import Path
+    source = (Path(__file__).resolve().parent.parent / "app" / "main.py").read_text()
+    signup = source.split('@app.post("/api/signup")')[1].split("@app.")[0]
+    assert '"requested_role"' in signup
+    # never used to set a role directly
+    assert 'role=' not in signup and '"role":' not in signup

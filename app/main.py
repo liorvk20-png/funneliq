@@ -191,9 +191,7 @@ def reset_password(payload: dict):
     if not token:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
                             "קישור האיפוס אינו תקין או שפג תוקפו.")
-    if len(password) < 6:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST,
-                            "הסיסמה קצרה מדי. נדרשים לפחות 6 תווים.")
+    _check_password(password)
     client = get_anon_client()
     try:
         client.auth.set_session(token, token)
@@ -248,23 +246,65 @@ def auth_providers():
             "supabaseUrl": require_env("SUPABASE_URL")}
 
 
+# What a password has to be. Stated once, checked on the server, and repeated
+# to the person as they type rather than after they submit.
+PASSWORD_RULES = {
+    "length": ("לפחות 8 תווים", lambda p: len(p) >= 8),
+    "upper": ("אות גדולה אחת לפחות", lambda p: any(c.isupper() for c in p)),
+    "lower": ("אות קטנה אחת לפחות", lambda p: any(c.islower() for c in p)),
+    "digit": ("ספרה אחת לפחות", lambda p: any(c.isdigit() for c in p)),
+    "symbol": ("סימן מיוחד אחד לפחות", lambda p: any(not c.isalnum() for c in p)),
+}
+
+
+def _check_password(password: str) -> None:
+    failed = [text for text, holds in PASSWORD_RULES.values() if not holds(password)]
+    if failed:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "הסיסמה אינה עומדת בדרישות: " + ", ".join(failed) + ".",
+        )
+
+
+GENDERS = ("female", "male", "other", "undisclosed")
+
+
 @app.post("/api/signup")
 def signup(payload: dict):
     email = str(payload.get("email", "")).strip()
     password = str(payload.get("password", ""))
+    confirm = str(payload.get("passwordConfirm", password))
     company = str(payload.get("company", "")).strip()
     invitation = str(payload.get("invitationCode", "")).strip()
+
+    full_name = str(payload.get("fullName", "")).strip()
+    job_title = str(payload.get("jobTitle", "")).strip()
+    phone = str(payload.get("phone", "")).strip()
+    gender = str(payload.get("gender", "")).strip()
+    birth_year = str(payload.get("birthYear", "")).strip()
+    requested_role = str(payload.get("requestedRole", "editor")).strip()
 
     # Two ways in, and they need different fields. Someone opening a workspace
     # names their company; someone joining one has a code instead and must not
     # be asked to invent a company name they would then be the only member of.
     if not email or not password:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש למלא אימייל וסיסמה.")
+    if not full_name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש להזין שם מלא.")
+    if password != confirm:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "שתי הסיסמאות אינן זהות.")
+    _check_password(password)
     if not invitation and not company:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש להזין שם חברה.")
     if len(company) > 120:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
                             "שם החברה ארוך מדי (עד 120 תווים).")
+    if gender and gender not in GENDERS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "ערך לא מוכר בשדה מין.")
+    if birth_year and not (birth_year.isdigit() and 1900 <= int(birth_year) <= 2100):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "שנת לידה אינה תקינה.")
+    if requested_role not in ("admin", "editor", "viewer"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "הרשאה מבוקשת אינה מוכרת.")
     try:
         # company_name travels in user metadata because the database trigger
         # reads it from there to build the workspace. Nothing here creates a
@@ -272,8 +312,19 @@ def signup(payload: dict):
         # named after its email domain.
         result = get_anon_client().auth.sign_up({
             "email": email, "password": password,
-            "options": {"data": {"company_name": company,
-                                 "invitation_code": invitation}},
+            "options": {"data": {
+                "company_name": company,
+                "invitation_code": invitation,
+                "full_name": full_name,
+                "job_title": job_title,
+                "phone": phone,
+                "gender": gender,
+                "birth_year": birth_year,
+                # Only a hint. Whoever opens a workspace administers it, and
+                # somebody joining one gets the role their invitation carries —
+                # a field the applicant fills in cannot decide their own access.
+                "requested_role": requested_role,
+            }},
         })
     except Exception as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
@@ -588,7 +639,12 @@ def me(token: str = Depends(get_current_user_token)):
     an empty dashboard that looks like a working account with no data.
     """
     client = get_user_client(token)
-    profiles = client.table("profiles").select("user_id,email,role,created_at").execute().data
+    # select("*") rather than naming columns, for the same reason as companies
+    # below: PostgREST rejects the whole query if one named column is missing,
+    # and this endpoint runs on every sign-in. Naming logo_b64 here once took
+    # the product down between a deploy and its migration; naming full_name
+    # would have done it again.
+    profiles = client.table("profiles").select("*").execute().data
     if not profiles:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -625,6 +681,13 @@ def me(token: str = Depends(get_current_user_token)):
         # Stated once, here, so the interface never has to work it out from the
         # role string in six places and get it wrong in one of them.
         "canManage": profile["role"] == "admin",
+        # Editing the data and managing the people are different permissions;
+        # the interface asks about them separately rather than inferring one
+        # from the other.
+        "canEdit": profile["role"] in ("admin", "editor"),
+        "fullName": profile.get("full_name"),
+        "jobTitle": profile.get("job_title"),
+        "phone": profile.get("phone"),
         "joinedAt": profile["created_at"],
         "company": company,
         "recordCount": records.count or 0,
@@ -1087,7 +1150,7 @@ def seats(token: str = Depends(get_current_user_token)):
     enforces that rather than a branch here.
     """
     client = get_user_client(token)
-    members = (client.table("profiles").select("user_id,email,role,created_at")
+    members = (client.table("profiles").select("*")
                .order("created_at").execute().data)
     try:
         pending = (client.table("invitations")
@@ -1096,8 +1159,18 @@ def seats(token: str = Depends(get_current_user_token)):
                    .execute().data)
     except Exception:
         pending = []
-    return {"members": members, "invitations": pending,
-            "role": _my_role(client)}
+    return {
+        # Only what the workspace needs to show. A profile row also holds a
+        # phone number and a birth year, and neither belongs in a list every
+        # colleague can read.
+        "members": [{
+            "user_id": m.get("user_id"), "email": m.get("email"),
+            "role": m.get("role"), "created_at": m.get("created_at"),
+            "full_name": m.get("full_name"), "job_title": m.get("job_title"),
+        } for m in members],
+        "invitations": pending,
+        "role": _my_role(client),
+    }
 
 
 def _my_role(client) -> str | None:
@@ -1116,10 +1189,10 @@ def invite_seat(payload: dict, token: str = Depends(get_current_user_token)):
     code that leaks cannot be redeemed by anyone else.
     """
     email = str(payload.get("email", "")).strip().lower()
-    role = str(payload.get("role", "viewer")).strip()
+    role = str(payload.get("role", "editor")).strip()
     if "@" not in email:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "יש להזין כתובת אימייל תקינה.")
-    if role not in ("admin", "viewer"):
+    if role not in ("admin", "editor", "viewer"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "הרשאה לא מוכרת.")
 
     client = get_user_client(token)
