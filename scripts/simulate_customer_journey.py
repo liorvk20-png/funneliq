@@ -128,12 +128,32 @@ def cleanup() -> None:
             client.table("companies").delete().eq("id", company["id"]).execute()
 
 
-def upload(auth, df, period, *, hebrew=True, mapping=None):
+def upload(auth, df, period, *, hebrew=True, mapping=None, wait=True):
+    """
+    Upload a month, and by default wait for the work that happens after the
+    response. Training and the narrative moved behind the request once the
+    round trips around them turned a one-second fit into a twenty-second wait;
+    a test that reads /api/models immediately would now be racing them.
+    """
     data = {"period": period}
     if mapping:
         data["mapping"] = json.dumps(mapping)
-    return requests.post(f"{API}/api/uploads", headers=auth,
-                         files={"file": ("month.csv", to_csv(df, hebrew))}, data=data)
+    r = requests.post(f"{API}/api/uploads", headers=auth,
+                      files={"file": ("month.csv", to_csv(df, hebrew))}, data=data)
+    if wait and r.status_code == 200:
+        settle(auth, r.json()["uploadId"])
+    return r
+
+
+def settle(auth, upload_id, attempts=40):
+    """Wait for one upload to leave `analysing`."""
+    for _ in range(attempts):
+        me = get(auth, "/api/me").json()
+        found = next((u for u in me.get("uploads", []) if u["id"] == upload_id), None)
+        if found and found["status"] != "analysing":
+            return found["status"]
+        time.sleep(1)
+    return "timeout"
 
 
 def get(auth, path):
@@ -185,10 +205,21 @@ def main() -> None:
           preview["resolved"].get("leads_answered") == "ענו"
           and preview["resolved"].get("leads_not_answered") == "לא ענו")
 
-    r = upload(alice, may, "2026-05")
+    started = time.time()
+    r = upload(alice, may, "2026-05", wait=False)
+    responded = time.time() - started
     check("the month saves", r.status_code == 200, f"HTTP {r.status_code} {r.text[:120]}")
     saved_body = r.json()
     check("every row landed", saved_body.get("rows") == len(may), str(saved_body.get("rows")))
+    # The response must not wait for training. It used to, and a save that takes
+    # twenty seconds with no feedback is indistinguishable from a broken one.
+    check("the response does not wait for the analysis", responded < 8,
+          f"{responded:.1f}s")
+    check("the dashboard has the rows before the analysis finishes",
+          get(alice, "/api/insights").json()["summary"]["total"] == len(may))
+    check("the upload reports itself as analysing",
+          saved_body.get("status") == "analysing", str(saved_body.get("status")))
+    check("and reaches ready", settle(alice, saved_body["uploadId"]) == "ready")
 
     print("\nSCENARIO 4 — do the dashboard numbers match the file?")
     ins = get(alice, "/api/insights").json()

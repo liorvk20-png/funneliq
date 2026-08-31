@@ -409,3 +409,43 @@ def test_vertical_rhythm_comes_from_one_rule(dashboard):
     # and a first version of this assertion flagged both.
     assert "style='height:22px'" not in dashboard
     assert 'style="margin-top:22px"' not in dashboard
+
+
+# ------------------------------------------- the upload form, from a report
+# A person uploaded a file, pressed save, and the button sat there. The rows had
+# been stored; the browser had destroyed the form it was standing in.
+def _save_handler(dashboard: str) -> str:
+    body = dashboard.split('$("upSave").onclick')[1]
+    return body.split("\n  };")[0]
+
+
+def test_saving_does_not_rebuild_the_page_it_is_standing_in(dashboard):
+    """
+    render() replaces all of #pageBody. Called from inside the save handler it
+    wiped the chosen file, wrote the report into a fresh DOM, and produced a new
+    save button that arrives disabled from the markup — which is what "the
+    button is stuck" was.
+    """
+    handler = _save_handler(dashboard)
+    assert "render();" not in handler, "the save handler must not call render()"
+
+
+def test_the_save_button_is_always_re_enabled(dashboard):
+    """
+    The finally block restored the label and not the disabled state, so a
+    button that had been switched off stayed off, wearing the right words.
+    """
+    handler = _save_handler(dashboard)
+    finally_block = handler.split("finally{")[1]
+    assert "disabled" in finally_block
+    assert "textContent" in finally_block
+
+
+def test_a_long_save_says_it_is_working(dashboard):
+    """
+    The upload takes seconds even when everything goes right. Silence for that
+    long reads as a hang, and did.
+    """
+    handler = _save_handler(dashboard)
+    assert "spinner" in handler
+    assert "שומרים" in handler or "שומר" in handler
