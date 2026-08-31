@@ -12,7 +12,7 @@ from app.main import app
 client = TestClient(app)
 
 GATED = ["/api/insights", "/api/funnel-records/sample", "/api/predict/1",
-         "/api/me", "/api/models"]
+         "/api/me", "/api/models", "/api/analysis"]
 
 
 def test_health_is_public():

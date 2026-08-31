@@ -53,7 +53,7 @@ scripts/        CSV loader
 migrations/     schema history; 002 turns one company into an engine anyone can join,
                 003 backfills workspaces for accounts that predate the trigger,
                 004 lets a company rename itself, 005 stores its own models,
-                006 stores its logo
+                006 stores its logo, 007 adds findings and narrative
 ```
 
 ## Running it locally
@@ -110,6 +110,77 @@ are toasts, and destructive actions get a real dialog with a focus trap.
 is not laziness: PostgREST rejects the entire query if one named column is
 missing, and `/api/me` runs on every sign-in — naming `logo_b64` there took the
 product down for every user between a deploy and its migration. A test pins it.
+
+## Findings and the narrative (WP7)
+
+Numbers never become sentences directly. Metrics become `Finding` objects and
+only findings become words, because the same objects feed the dashboard, the
+alerts, the PDF and any future agent — each reads structure instead of
+re-deriving meaning from rows, so the next consumer costs nothing to add.
+
+The iron rule follows: `narrative_outputs.finding_id` is NOT NULL and a foreign
+key, so a sentence with nothing behind it cannot be stored and therefore cannot
+be shown.
+
+**Contribution analysis** (`app/analytics/contribution.py`). An overall rate is
+a weighted average, and when it falls two different things may have happened:
+the mix moved toward weaker segments, or the segments themselves got worse. The
+same headline, opposite responses. The split is exact — mix + rate +
+interaction equals the change to 1e-9, asserted on hand-built, generated and
+real data. The interaction term is kept rather than folded into the others:
+absorbing it is how a decomposition starts lying, because it produces a
+confident mix-versus-rate verdict exactly when no such verdict is available.
+
+**Factor decomposition** (`app/analytics/factor_decomp.py`). Logs turn a
+product into a sum, so CPA splits into click price and conversion rate as
+additive shares. On the reference data a 28% rise came out as 61% conversion
+weakness and 39% click price — the question the category is actually asked. The
+factors are checked against the metric's own change and a list that does not
+reconstruct it raises, because a missing term produces a plausible, wrong
+attribution rather than an error.
+
+**Evidence gates** (`app/analytics/significance.py`). Small denominators
+produce the largest percentage swings, so without a gate the ranking fills with
+the findings least worth reading. Rates get a two-proportion z test; ratios and
+sums get a bootstrap, vectorised — the loop version was correct and took most
+of sixteen seconds on a full run. Nothing is discarded for being uncertain; it
+is labelled `insufficient` and shown in the quality section, because a person
+who reads "too few records to conclude" trusts the product more afterwards than
+one who reads a confident number and later learns what it rested on.
+
+**Hebrew** (`app/narrative/hebrew.py`). A verb agrees with its subject, so the
+same event is עלתה for עלות and עלה for שיעור — and the pair itself changes
+with the kind of thing, since prices rise and fall while quantities grow and
+shrink. Both are lookups over a hand-checked list. Prepositions merge with the
+definite article too: ב + הרווח is ברווח, never בהרווח.
+
+**Rules** (`app/narrative/rules_seed.py`). Forty-six: the specification's
+forty-two, three correlational twins, and one for a segment moving against the
+overall change. The twins exist because the guardrail on causal language would
+otherwise delete an observation rather than rephrase it — causal wording needs
+high confidence *and* a share of at least 0.60, enforced by conditions on the
+rule so a template that reaches for "נובע מ" without them never fires.
+
+Conditions are a closed DSL: nine comparisons against literals, no eval, no
+callables. Rules are data and data may one day be edited by someone who is not
+us.
+
+### Deviations from the specification, and why
+
+`org_id` is `company_id`. Tenancy here has been `companies` and
+`current_company_id()` since 002; a second key alongside the first would mean
+two isolation systems that must agree forever, and the failure mode when they
+stop agreeing is one customer reading another's analysis.
+
+pandas rather than DuckDB. At the 50,000-row ceiling an upload already
+enforces, a groupby is the same operation without a second engine to install,
+pin and keep working on the deploy.
+
+Two dimensions rather than six. This data has no channel, no device and no
+per-row date; it has `budget_tier`, and a volume band derived from ad-side
+numbers only, so it is known before any outcome. The miner is generic over a
+dimension list — when the ad-platform integrations land they join it and
+nothing else changes.
 
 ## Models
 
