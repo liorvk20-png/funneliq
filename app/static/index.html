@@ -224,8 +224,10 @@ bdi{unicode-bidi:isolate}
 }
 .btn:active{transform:translateY(.5px)}
 .btn[disabled]{opacity:.5;cursor:not-allowed;transform:none}
-.btn-primary{background:var(--brand);color:var(--on-brand);box-shadow:var(--sh-xs)}
-.btn-primary:hover:not([disabled]){background:var(--brand-ink);box-shadow:var(--sh-sm)}
+.btn-primary{background:linear-gradient(135deg,var(--brand),var(--brand-ink));
+             color:var(--on-brand);box-shadow:var(--sh-sm)}
+.btn-primary:hover:not([disabled]){box-shadow:var(--sh-md);transform:translateY(-1px)}
+.btn-primary:active:not([disabled]){transform:translateY(.5px)}
 .btn-secondary{background:var(--surface);color:var(--text);border-color:var(--line-strong);
                box-shadow:var(--sh-xs)}
 .btn-secondary:hover:not([disabled]){background:var(--surface-3);border-color:var(--n-400)}
@@ -275,7 +277,8 @@ select{appearance:none;text-overflow:ellipsis;
 .logo{display:flex;align-items:center;gap:10px;font-size:var(--t-2xl);
       font-weight:800;letter-spacing:-.03em}
 .logo .mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;
-            background:var(--brand);color:var(--on-brand);flex:none;box-shadow:var(--sh-sm)}
+            background:linear-gradient(135deg,var(--brand),var(--brand-ink));
+            color:var(--on-brand);flex:none;box-shadow:var(--sh-sm)}
 .logo em{font-style:normal;color:var(--brand)}
 .tagline{color:var(--text-2);font-size:var(--t-md);margin:var(--s-3) 0 var(--s-6)}
 
@@ -408,10 +411,9 @@ td .n{font-size:var(--t-xs);color:var(--text-3);margin-top:3px;white-space:norma
   transition:background var(--fast) var(--ease), color var(--fast) var(--ease);
 }
 .nav a:hover{background:var(--surface-3);color:var(--text)}
-.nav a[aria-current="page"]{background:var(--brand-soft);color:var(--brand-ink)}
-.nav a[aria-current="page"]::before{
-  content:"";position:absolute;inset-inline-end:calc(var(--s-4) * -1);top:50%;transform:translateY(-50%);
-  width:3px;height:18px;border-radius:3px;background:var(--brand);
+.nav a[aria-current="page"]{
+  background:linear-gradient(135deg,var(--brand),var(--brand-ink));
+  color:var(--on-brand);box-shadow:var(--sh-sm);
 }
 .nav svg{width:18px;height:18px;stroke-width:2}
 .nav-label{font-size:var(--t-xs);font-weight:700;color:var(--text-3);
@@ -484,12 +486,18 @@ main{padding:var(--s-8) var(--s-10) var(--s-16);max-width:1180px;width:100%}
 .tile.t3{background:linear-gradient(160deg,var(--tint-3),var(--surface) 64%)}
 .tile.t4{background:linear-gradient(160deg,var(--tint-4),var(--surface) 64%)}
 .tile.t5{background:linear-gradient(160deg,var(--tint-5),var(--surface) 64%)}
-/* A hairline rail on hover. Four identical rectangles in a row read as a
-   table; this gives the one under the pointer an edge to be read from. */
+/* A coloured rail, always on. Four identical rectangles in a row read as a
+   table; a permanent, series-coloured edge gives each one an identity before
+   the pointer ever reaches it, and the hover state just turns the volume up. */
 .tile::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;
-  width:3px;background:var(--brand);opacity:0;
+  width:4px;background:var(--brand);opacity:.55;
   transition:opacity var(--base) var(--ease)}
-.tile:hover::before{opacity:.7}
+.tile:hover::before{opacity:1}
+.tile.t1::before{background:var(--c1)}
+.tile.t2::before{background:var(--c2)}
+.tile.t3::before{background:var(--c3)}
+.tile.t4::before{background:var(--c4)}
+.tile.t5::before{background:var(--c5)}
 .tile .k{font-size:var(--t-sm);color:var(--text-2);font-weight:600;
   letter-spacing:.01em}
 .tile .v{font-size:var(--t-3xl);font-weight:800;letter-spacing:-.035em;
