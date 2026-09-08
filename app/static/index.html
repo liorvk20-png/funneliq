@@ -98,6 +98,14 @@
   --ease:cubic-bezier(.2,.7,.3,1);
   --fast:130ms; --base:200ms;
   --nav-w:264px;
+
+  /* The app sidebar's own palette. It never answers to :root[data-theme] —
+     it is chrome, always dark, so it stays put in one place regardless of
+     what the content area is doing. */
+  --side-bg-1:#101a30; --side-bg-2:#0a1120;
+  --side-line:rgb(255 255 255 / .08);
+  --side-text:#eef2ff; --side-text-dim:rgb(238 242 255 / .62);
+  --side-accent:#8fbcff; --side-accent-1:#3b82f6; --side-accent-2:#1d4ed8;
 }
 
 :root[data-theme="dark"]{
@@ -263,7 +271,8 @@ select{appearance:none;text-overflow:ellipsis;
 .hint{font-size:var(--t-xs);color:var(--text-3);margin-top:var(--s-2);line-height:1.5}
 
 /* ═══════════════════════════════════════════════════════════ auth screen */
-.auth{min-height:100dvh;display:grid;place-items:center;padding:var(--s-6);
+.auth{min-height:100dvh;display:grid;grid-template-columns:1fr;place-items:center;
+      padding:var(--s-6);
       background:
         radial-gradient(900px 500px at 85% -8%, var(--brand-soft), transparent 60%),
         radial-gradient(700px 500px at 5% 105%, var(--surface-3), transparent 55%),
@@ -274,6 +283,39 @@ select{appearance:none;text-overflow:ellipsis;
   border:1px solid var(--line);border-radius:var(--r-xl);
   padding:var(--s-10) var(--s-8) var(--s-8);box-shadow:var(--sh-lg);
 }
+
+/* The marketing half of the split screen. Hidden below the width a two-column
+   layout stops paying for itself; the form alone still carries its own name
+   and one-line description, so nothing here is load-bearing for narrow
+   screens or for someone who never sees it. */
+.auth-hero{display:none}
+@media (min-width:900px){
+  .auth{grid-template-columns:minmax(380px,1fr) minmax(400px,460px);
+        place-items:stretch;padding:0;background:var(--bg)}
+  .auth-hero{
+    display:flex;align-items:center;height:100dvh;padding:var(--s-16) var(--s-12);
+    background:
+      radial-gradient(640px 420px at 18% 8%, rgb(59 130 246 / .22), transparent 60%),
+      radial-gradient(520px 420px at 92% 96%, rgb(29 78 216 / .28), transparent 55%),
+      linear-gradient(175deg,var(--side-bg-1),var(--side-bg-2));
+    color:var(--side-text);position:relative;overflow:hidden;
+  }
+  .auth-hero-inner{max-width:440px;position:relative}
+.auth-hero .logo em{color:var(--side-accent)}
+  .auth-card{margin-inline-end:var(--s-12)}
+}
+.auth-hero-h{font-size:var(--t-3xl);font-weight:800;letter-spacing:-.025em;
+             line-height:1.3;margin:var(--s-8) 0 var(--s-4)}
+.auth-hero-p{color:var(--side-text-dim);font-size:var(--t-lg);line-height:1.6;
+             max-width:42ch}
+.auth-stats{list-style:none;margin:var(--s-8) 0 0;padding:var(--s-6) 0 0;
+            border-top:1px solid var(--side-line);
+            display:flex;flex-direction:column;gap:var(--s-5)}
+.auth-stats li{display:flex;align-items:baseline;gap:var(--s-4)}
+.auth-stats b{font-size:var(--t-2xl);font-weight:800;letter-spacing:-.02em;
+              color:var(--side-accent);flex:none;min-width:4.4ch;
+              font-variant-numeric:tabular-nums lining-nums}
+.auth-stats span{color:var(--side-text-dim);font-size:var(--t-sm);line-height:1.5}
 .logo{display:flex;align-items:center;gap:10px;font-size:var(--t-2xl);
       font-weight:800;letter-spacing:-.03em}
 .logo .mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;
@@ -390,45 +432,54 @@ td .n{font-size:var(--t-xs);color:var(--text-3);margin-top:3px;white-space:norma
 
 /* ═══════════════════════════════════════════════════════════ app shell */
 .shell{display:grid;grid-template-columns:var(--nav-w) 1fr;min-height:100dvh}
+/* The sidebar stays a fixed dark navy in both themes, the way most serious
+   dashboards separate "where you are" from "what you're reading" — it is
+   chrome, not content, so it does not have to answer to the page's own
+   light/dark toggle. --side-* tokens are declared once because they never
+   change with the theme. */
 .side{
   position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;
   gap:var(--s-6);padding:var(--s-6) var(--s-4);
-  background:linear-gradient(to bottom,
-      color-mix(in srgb,var(--surface) 95%,var(--brand) 5%), var(--surface) 240px);
-  border-inline-start:1px solid var(--line);
+  background:linear-gradient(175deg,var(--side-bg-1),var(--side-bg-2));
+  border-inline-start:1px solid var(--side-line);
+  color:var(--side-text);
 }
 .side-head{display:flex;align-items:center;justify-content:space-between;
            gap:var(--s-2);padding-inline:var(--s-2)}
 .side .logo{font-size:var(--t-xl)}
 .side .logo .mark{width:30px;height:30px;border-radius:9px}
+.side .logo em{color:var(--side-accent)}
+.side .btn{color:var(--side-text-dim)}
+.side .btn:hover:not([disabled]){background:rgba(255,255,255,.08);color:var(--side-text)}
 .co-logo{max-height:34px;max-width:140px;object-fit:contain;display:block}
 
 .nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
 .nav a{
   display:flex;align-items:center;gap:11px;padding:9px var(--s-3);
-  border-radius:var(--r-sm);color:var(--text-2);text-decoration:none;
+  border-radius:var(--r-sm);color:var(--side-text-dim);text-decoration:none;
   font-weight:600;font-size:var(--t-md);position:relative;
   transition:background var(--fast) var(--ease), color var(--fast) var(--ease);
 }
-.nav a:hover{background:var(--surface-3);color:var(--text)}
+.nav a:hover{background:rgba(255,255,255,.07);color:var(--side-text)}
 .nav a[aria-current="page"]{
-  background:linear-gradient(135deg,var(--brand),var(--brand-ink));
-  color:var(--on-brand);box-shadow:var(--sh-sm);
+  background:linear-gradient(135deg,var(--side-accent-1),var(--side-accent-2));
+  color:#fff;box-shadow:0 6px 18px rgb(29 78 216 / .35);
 }
 .nav svg{width:18px;height:18px;stroke-width:2}
-.nav-label{font-size:var(--t-xs);font-weight:700;color:var(--text-3);
+.nav-label{font-size:var(--t-xs);font-weight:700;color:rgb(255 255 255 / .32);
            text-transform:uppercase;letter-spacing:.06em;padding:0 var(--s-3);
            margin-bottom:var(--s-2)}
 
-.side-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:var(--s-4)}
+.side-foot{margin-top:auto;border-top:1px solid var(--side-line);padding-top:var(--s-4)}
 .who-row{display:flex;align-items:center;gap:10px;padding:var(--s-2)}
 .avatar{width:32px;height:32px;border-radius:var(--r-full);flex:none;display:grid;
         place-items:center;background:var(--brand-soft);color:var(--brand-ink);
         font-weight:700;font-size:var(--t-sm)}
+.side .avatar{background:rgb(255 255 255 / .14);color:#fff}
 .who-text{min-width:0;flex:1}
-.who-text b{display:block;font-size:var(--t-sm);font-weight:700;
+.who-text b{display:block;font-size:var(--t-sm);font-weight:700;color:var(--side-text);
             overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.who-text span{display:block;font-size:var(--t-xs);color:var(--text-3);
+.who-text span{display:block;font-size:var(--t-xs);color:var(--side-text-dim);
                overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 main{padding:var(--s-8) var(--s-10) var(--s-16);max-width:1180px;width:100%}
@@ -777,6 +828,27 @@ details[open]>summary::before{transform:rotate(-90deg)}
 
 <!-- ══════════════════════════════════════════════ sign in / sign up -->
 <div id="loginView" class="auth">
+  <div class="auth-hero">
+    <div class="auth-hero-inner">
+      <div class="logo" aria-hidden="true">
+        <span class="mark" aria-hidden="true">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 4h18l-7 8v7l-4 2v-9z"/>
+          </svg>
+        </span>
+        <span>Funnel<em>IQ</em></span>
+      </div>
+      <h1 class="auth-hero-h">פחות ניחוש בתקציב השיווק,<br>יותר החלטות שמבוססות על הנתונים שלך</h1>
+      <p class="auth-hero-p">מנתח את קמפייני השיווק שלך, מאמן עליהם מודלים ששייכים רק לחברה
+        שלך, ומראה בדיוק איפה התקציב עובד ואיפה הוא נשרף.</p>
+      <ul class="auth-stats">
+        <li><b>10.87x</b><span>תשואה בשיא ההשקעה בתמהיל התקציב הנכון</span></li>
+        <li><b>2.18</b><span>חודשי טעות בחיזוי אורך חיי לקוח, לעומת 11.43 בניחוש</span></li>
+        <li><b>0.818</b><span>recall בזיהוי לקוחות שיקנו שדרוג</span></li>
+      </ul>
+    </div>
+  </div>
   <form class="auth-card" id="loginForm">
     <div class="logo">
       <span class="mark" aria-hidden="true">
