@@ -1382,6 +1382,107 @@ def delete_upload(upload_id: str, background: BackgroundTasks,
     return {"deleted": upload_id, "rowsRemoved": len(removed.data)}
 
 
+# ══════════════════════════════════════════════════════════ Meta Ads (MVP)
+# A company can connect a Meta Ads account and pull campaign spend and lead
+# counts straight into the same review screen a CSV upload shows. The token
+# is pasted by hand for now rather than through OAuth -- see
+# app/integrations/meta_ads.py for what that does and does not cover.
+
+def _require_editor(client, token: str) -> None:
+    if _my_role(client, token) == "viewer":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "להרשאת צפייה אין אפשרות לנהל חיבורים לפלטפורמות פרסום.")
+
+
+@app.get("/api/integrations/meta/status")
+def meta_status(token: str = Depends(get_current_user_token)):
+    client = get_user_client(token)
+    rows = (client.table("meta_ads_connections")
+            .select("ad_account_id,connected_at,last_synced_at")
+            .execute().data)
+    if not rows:
+        return {"connected": False}
+    row = rows[0]
+    return {"connected": True, "adAccountId": row["ad_account_id"],
+            "connectedAt": row["connected_at"], "lastSyncedAt": row["last_synced_at"]}
+
+
+@app.post("/api/integrations/meta/connect")
+def meta_connect(payload: dict, token: str = Depends(get_current_user_token)):
+    ad_account_id = str(payload.get("adAccountId") or "").strip()
+    access_token = str(payload.get("accessToken") or "").strip()
+    if not ad_account_id or not access_token:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "יש למלא מזהה חשבון מודעות וטוקן גישה.")
+
+    client = get_user_client(token)
+    _require_editor(client, token)
+    company_id = _company_id(client)
+    client.table("meta_ads_connections").upsert({
+        "company_id": company_id,
+        "ad_account_id": ad_account_id,
+        "access_token": access_token,
+        "connected_by": user_id_for(token),
+        "connected_at": "now()",
+    }).execute()
+    return {"connected": True, "adAccountId": ad_account_id}
+
+
+@app.delete("/api/integrations/meta/connect")
+def meta_disconnect(token: str = Depends(get_current_user_token)):
+    client = get_user_client(token)
+    _require_editor(client, token)
+    client.table("meta_ads_connections").delete().eq(
+        "company_id", _company_id(client)).execute()
+    return {"connected": False}
+
+
+@app.post("/api/integrations/meta/preview")
+def meta_preview(payload: dict, token: str = Depends(get_current_user_token)):
+    """
+    Fetch this month's campaigns from the connected ad account and run them
+    through the same checks a CSV file gets. Nothing is stored here — the
+    browser turns the (possibly hand-completed) rows into a CSV and posts it
+    to /api/uploads exactly as a file upload would, so the save path, the
+    duplicate-month guard and the training/narrative run afterward are all
+    the code already proven on real files, not a second copy of it.
+    """
+    since = str(payload.get("since") or "").strip()
+    until = str(payload.get("until") or "").strip()
+    if not since or not until:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "יש לבחור טווח תאריכים (since, until).")
+
+    client = get_user_client(token)
+    _require_editor(client, token)
+    rows = (client.table("meta_ads_connections")
+            .select("ad_account_id,access_token")
+            .eq("company_id", _company_id(client)).execute().data)
+    if not rows:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "אין חיבור פעיל ל-Meta Ads. חבר חשבון קודם.")
+    conn = rows[0]
+
+    from app.integrations.meta_ads import MetaAdsError, fetch_campaign_insights, map_to_funnel_frame
+    try:
+        insights = fetch_campaign_insights(
+            conn["access_token"], conn["ad_account_id"], since, until)
+    except MetaAdsError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from None
+
+    frame, names = map_to_funnel_frame(insights)
+    report, clean = inspect(frame)
+    result = report.as_dict()
+    if clean is not None:
+        full_rows = clean.astype(object).where(pd.notnull(clean), None).to_dict(orient="records")
+        result["rows"] = [{"campaignName": name, **row}
+                          for name, row in zip(names, full_rows, strict=True)]
+    client.table("meta_ads_connections").update(
+        {"last_synced_at": "now()"}).eq("company_id", _company_id(client)).execute()
+    return result
+
+
 # Mounted LAST on purpose: a mount at "/" catches every path the routes above
 # did not claim, so declaring it earlier would shadow the whole API.
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")

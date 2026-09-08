@@ -1141,6 +1141,23 @@ async function api(path){
   return res.json();
 }
 
+/* POST/DELETE with a JSON body, same auth-and-401 handling as api(). Kept
+   separate rather than folded into api() because most callers there are
+   plain GETs and a method+body parameter on every call site would be noise. */
+async function apiJson(path, method, payload){
+  const s = await freshSession();
+  if(!s) throw new Error("__expired__");
+  const res = await fetch(path, {
+    method,
+    headers:{ "Authorization":"Bearer " + s.token, "Content-Type":"application/json" },
+    body: payload === undefined ? undefined : JSON.stringify(payload),
+  });
+  if(res.status === 401){ clearSession(); throw new Error("__expired__"); }
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok) throw new Error(data.detail || `הבקשה נכשלה (${res.status})`);
+  return data;
+}
+
 /* ------------------------------------------------------------ formatting */
 const nf  = new Intl.NumberFormat("he-IL");
 const na  = () => '<span class="null">אין נתון</span>';
@@ -2101,6 +2118,14 @@ PAGES.upload = () => {
     <div id="upReport"></div>
   </section>`;
 
+  const meta = `<section class="card" id="metaCard">
+    <h2>ייבוא ממטא אדס (Meta Ads)</h2>
+    <p class="sub">מושך הוצאה ומספר לידים ישירות מחשבון המודעות שלך. שיחות
+       מעקב, סגירות, רכישות והפניות אינן קיימות במטא ותמיד יושלמו ידנית — אין
+       דרך לפלטפורמת פרסום לדעת מה קרה לליד אחרי שהוא עבר לצוות המכירות.</p>
+    <div id="metaBody">בודק חיבור…</div>
+  </section>`;
+
   const cols = `<section class="card">
     <h2>שדות נדרשים</h2>
     <p class="sub">אין צורך להתאים שמות עמודות. המערכת מזהה אוטומטית "תקציב",
@@ -2118,7 +2143,7 @@ PAGES.upload = () => {
     </div>
   </section>`;
 
-  return head + form + cols + uploadHistoryCard();
+  return head + form + meta + cols + uploadHistoryCard();
 };
 
 // Column name, what it means, what shape it takes. Kept beside the page it
@@ -2832,6 +2857,171 @@ function wireUpload(){
   };
 
   wireUploadDeletes();
+  wireMetaAds();
+}
+
+const META_CSV_COLUMNS = ["campaignName","ad_budget","num_leads","leads_answered",
+  "leads_not_answered","followup_1","followup_2","followup_3","followup_4",
+  "followup_5","not_closed","closed","calls_to_closed","calls_to_not_closed",
+  "customer_acquisition_cost","ltv_months","purchased","upsell",
+  "cumulative_profit","referred"];
+
+function metaRowsToCsv(rows){
+  const line = (vals) => vals.map(v => {
+    if(v === null || v === undefined) return "";
+    if(typeof v === "boolean") return v ? "Yes" : "No";
+    const s = String(v);
+    const needsQuoting = s.includes(",") || s.includes("\n") || s.includes("\"");
+    return needsQuoting ? `"${s.split("\"").join("\"\"")}"` : s;
+  }).join(",");
+  const body = rows.map(r => line(META_CSV_COLUMNS.map(c => r[c])));
+  return [line(META_CSV_COLUMNS), ...body].join("\r\n") + "\r\n";
+}
+
+function downloadCsv(filename, text){
+  // Same BOM trick as upTemplate's download: without it, Excel reads a
+  // UTF-8 file with Hebrew campaign names as cp1252 and mangles every one.
+  const blob = new Blob(["﻿" + text], { type:"text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function metaConnectedView(status){
+  return `<div class="callout" style="display:flex;justify-content:space-between;
+              align-items:center;gap:var(--s-4);flex-wrap:wrap">
+      <span>מחובר לחשבון <bdi dir="ltr" class="num">${esc(status.adAccountId)}</bdi></span>
+      <button class="btn btn-danger btn-sm" id="metaDisconnectBtn">נתק חשבון</button>
+    </div>
+    <div class="two-up" style="max-width:420px;margin-top:var(--s-4)">
+      <div class="field"><label for="metaSince">מתאריך</label>
+        <input id="metaSince" type="date"></div>
+      <div class="field"><label for="metaUntil">עד תאריך</label>
+        <input id="metaUntil" type="date"></div>
+    </div>
+    <div class="row-actions">
+      <button class="btn btn-primary" id="metaPullBtn">משוך קמפיינים</button>
+    </div>
+    <div id="metaResult"></div>`;
+}
+
+function metaDisconnectedView(){
+  return `<div class="grid-2" style="max-width:520px">
+      <div class="field"><label for="metaAccount">מזהה חשבון מודעות</label>
+        <input id="metaAccount" placeholder="act_1234567890"></div>
+      <div class="field"><label for="metaToken">טוקן גישה</label>
+        <input id="metaToken" type="password" placeholder="EAAG…"></div>
+    </div>
+    <p class="hint">הטוקן נשמר בצד השרת בלבד ולעולם לא מוצג שוב בדפדפן.</p>
+    <div class="row-actions">
+      <button class="btn btn-primary" id="metaConnectBtn">התחבר</button>
+    </div>`;
+}
+
+async function wireMetaAds(){
+  const body = $("metaBody");
+  if(!body) return;
+
+  if(!META_STATUS){
+    try{
+      META_STATUS = await api("/api/integrations/meta/status");
+    }catch(e){
+      if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
+      body.innerHTML = `<div class="callout neg">${esc(e.message)}</div>`;
+      return;
+    }
+  }
+
+  body.innerHTML = META_STATUS.connected
+    ? metaConnectedView(META_STATUS) : metaDisconnectedView();
+
+  const connectBtn = $("metaConnectBtn");
+  if(connectBtn) connectBtn.onclick = async () => {
+    connectBtn.disabled = true; connectBtn.textContent = "מתחבר…";
+    try{
+      META_STATUS = await apiJson("/api/integrations/meta/connect", "POST", {
+        adAccountId: $("metaAccount").value.trim(),
+        accessToken: $("metaToken").value.trim(),
+      });
+      toast("pos", "החשבון חובר.");
+      await wireMetaAds();
+    }catch(e){
+      if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
+      toast("neg", e.message);
+    }finally{
+      const b = $("metaConnectBtn");
+      if(b){ b.disabled = false; b.textContent = "התחבר"; }
+    }
+  };
+
+  const disconnectBtn = $("metaDisconnectBtn");
+  if(disconnectBtn) disconnectBtn.onclick = async () => {
+    const ok = await confirmDialog({
+      title: "לנתק את חשבון המודעות?",
+      body: "אפשר לחבר מחדש בכל רגע. שום נתון שכבר נשמר בחודשים הקודמים לא יימחק.",
+    });
+    if(!ok) return;
+    try{
+      META_STATUS = await apiJson("/api/integrations/meta/connect", "DELETE");
+      META_ROWS = null;
+      await wireMetaAds();
+    }catch(e){
+      if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
+      toast("neg", e.message);
+    }
+  };
+
+  const sinceEl = $("metaSince"), untilEl = $("metaUntil");
+  if(sinceEl && untilEl && !untilEl.value){
+    const today = new Date();
+    const back30 = new Date(today.getTime() - 30 * 86400000);
+    untilEl.value = today.toISOString().slice(0, 10);
+    sinceEl.value = back30.toISOString().slice(0, 10);
+  }
+
+  const pullBtn = $("metaPullBtn");
+  if(pullBtn) pullBtn.onclick = async () => {
+    pullBtn.disabled = true; pullBtn.textContent = "מושך…";
+    const result = $("metaResult");
+    result.innerHTML = "";
+    try{
+      const r = await apiJson("/api/integrations/meta/preview", "POST", {
+        since: $("metaSince").value, until: $("metaUntil").value,
+      });
+      if(!r.ok){
+        const list = (items) => `<ul>${items.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`;
+        result.innerHTML = `<div class="callout neg"><h3>לא ניתן למשוך</h3>
+          ${list(r.errors || [])}</div>`;
+        return;
+      }
+      META_ROWS = r.rows || [];
+      const table = META_ROWS.map(row => `<tr>
+          <td>${esc(row.campaignName)}</td><td>${money(row.ad_budget)}</td>
+          <td>${num(row.num_leads)}</td><td>${money(row.customer_acquisition_cost)}</td>
+        </tr>`).join("");
+      result.innerHTML = `<div class="callout pos"><h3>נמצאו ${num(META_ROWS.length)} קמפיינים</h3>
+          הוצאה ולידים נמשכו מ-Meta. שיחות מעקב, סגירות, רכישות ורווח לא נמצאים שם —
+          הורד את הקובץ, השלם את העמודות האלה, ואז ייבא אותו למעלה כמו כל קובץ CSV.</div>
+        <div class="table-wrap" style="margin-top:var(--s-4)"><table><thead><tr>
+          <th>קמפיין</th><th>תקציב</th><th>לידים</th><th>עלות לליד</th>
+        </tr></thead><tbody>${table}</tbody></table></div>
+        <div class="row-actions">
+          <button class="btn btn-primary" id="metaDownloadBtn">הורד כקובץ CSV להשלמה</button>
+        </div>`;
+      $("metaDownloadBtn").onclick = () => {
+        downloadCsv(`meta-ads-${$("metaSince").value}-to-${$("metaUntil").value}.csv`,
+                    metaRowsToCsv(META_ROWS));
+      };
+    }catch(e){
+      if(e.message === "__expired__") return showLogin("החיבור פג. התחבר שוב.");
+      result.innerHTML = `<div class="callout neg">${esc(e.message)}</div>`;
+    }finally{
+      const b = $("metaPullBtn");
+      if(b){ b.disabled = false; b.textContent = "משוך קמפיינים"; }
+    }
+  };
 }
 
 function wireUploadDeletes(){
@@ -2881,6 +3071,7 @@ const PROFILE_TABS = [
 
 let PROFILE_TAB = "account";
 let SEATS = null;
+let META_STATUS = null, META_ROWS = null;
 
 PAGES.profile = () => {
   const head = pageHead("profile");

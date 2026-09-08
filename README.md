@@ -419,6 +419,28 @@ question with three example values from that column beside it, because the
 matcher just failed to decide from the name and the person should not have to
 either.
 
+### Meta Ads (MVP)
+
+A company can connect a Meta Ads account (**ייבוא נתונים → ייבוא ממטא אדס**)
+and pull campaign spend and lead counts straight in, instead of exporting a
+CSV by hand. The MVP connects with a pasted access token rather than OAuth —
+`migrations/010_meta_ads_connection.sql` adds the table, gated to admin/editor
+the same way the company-rename policy is, and the token is never returned by
+any API response.
+
+`app/integrations/meta_ads.py` states the limit of this on purpose: an ad
+platform can describe its own side of the funnel — spend, leads, and therefore
+`customer_acquisition_cost` — and nothing past it. Every follow-up-call,
+close, purchase, upsell, referral, LTV and profit column starts at the honest
+"not yet known" default (zero, `false`, or blank for the two nullable columns)
+rather than a guess, because that data describes what a company's own sales
+team did after the lead left Meta's platform, which no ad platform can see.
+
+The pulled rows run through `app.ingest.inspect()` unchanged — same gate a CSV
+gets — and the browser turns them into a downloadable CSV with the ad-side
+columns filled in, for the person to complete and upload through the existing,
+already-proven `/api/uploads` flow. No second save path was written for this.
+
 The care in that file is aimed at one failure. `leads_answered` and
 `leads_not_answered` differ by three characters and every similarity measure
 rates each as an excellent match for the other; swapped, they load cleanly and
