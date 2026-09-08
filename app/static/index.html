@@ -16,7 +16,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap">
 <script>
   // Runs before the stylesheet paints anything. Reading the stored choice here
   // rather than in the main script is the difference between a dark-mode user
@@ -41,15 +41,19 @@
   --n-200:#e4e8f0; --n-300:#cfd5e2; --n-400:#9aa3b8;
   --n-500:#6b7488; --n-600:#4a5265; --n-700:#333a4a; --n-800:#1f2534; --n-900:#12161f;
 
-  /* One confident accent. A product that uses three looks like three products. */
-  --accent-50:#eef2ff; --accent-100:#e0e7ff; --accent-300:#a5b4fc;
-  --accent:#4f46e5; --accent-600:#4338ca; --accent-700:#3730a3;
+  /* One confident accent. A product that uses three looks like three products.
+     A professional, data-trustworthy blue — the hue reads "dashboard" before
+     a single number is on screen. */
+  --accent-50:#eff6ff; --accent-100:#dbeafe; --accent-300:#93c5fd;
+  --accent:#1d4ed8; --accent-600:#1e40af; --accent-700:#1e3a8a;
 
   /* Chart colours, kept apart from the semantic ones. Green here means "the
      second series", not "good news"; mixing the two is how a chart ends up
-     telling a story its own data does not support. */
-  --c1:#4f46e5; --c2:#0ea5e9; --c3:#10b981; --c4:#f59e0b; --c5:#ec4899;
-  --tint-1:#eef2ff; --tint-2:#e0f2fe; --tint-3:#ecfdf5;
+     telling a story its own data does not support. c1 matches the brand blue
+     on purpose — the first series and the product's own colour are the same
+     thing in a single-accent system. */
+  --c1:#1d4ed8; --c2:#0d9488; --c3:#10b981; --c4:#f59e0b; --c5:#ec4899;
+  --tint-1:#eff6ff; --tint-2:#e6f5f3; --tint-3:#ecfdf5;
   --tint-4:#fef3c7; --tint-5:#fce7f3;
 
   --pos-50:#ecfdf5; --pos:#059669; --pos-700:#047857;
@@ -107,15 +111,15 @@
   --text:#e8ebf2;
   --text-2:#a8b0c2;
   --text-3:#7d8598;
-  --brand:#7c8cff;
-  --brand-ink:#93a0ff;
-  --brand-soft:#1a1f36;
-  --on-brand:#0b0e14;
+  --brand:#5b9bff;
+  --brand-ink:#8fbcff;
+  --brand-soft:#152541;
+  --on-brand:#0a1120;
   --pos-50:#0d2620; --pos:#34d399; --pos-700:#6ee7b7;
   --warn-50:#2a2113; --warn:#fbbf24; --warn-700:#fcd34d;
   --neg-50:#2b1416; --neg:#f87171; --neg-700:#fca5a5;
-  --c1:#818cf8; --c2:#38bdf8; --c3:#34d399; --c4:#fbbf24; --c5:#f472b6;
-  --tint-1:#1e1b3a; --tint-2:#0c2a3d; --tint-3:#0d2b22;
+  --c1:#5b9bff; --c2:#2dd4bf; --c3:#34d399; --c4:#fbbf24; --c5:#f472b6;
+  --tint-1:#152541; --tint-2:#0c2b28; --tint-3:#0d2b22;
   --tint-4:#2e2410; --tint-5:#2e1524;
   --sh-xs:0 1px 2px rgb(0 0 0 / .4);
   --sh-sm:0 1px 3px rgb(0 0 0 / .45);
@@ -138,15 +142,15 @@
   --text:#e8ebf2;
   --text-2:#a8b0c2;
   --text-3:#7d8598;
-  --brand:#7c8cff;
-  --brand-ink:#93a0ff;
-  --brand-soft:#1a1f36;
-  --on-brand:#0b0e14;
+  --brand:#5b9bff;
+  --brand-ink:#8fbcff;
+  --brand-soft:#152541;
+  --on-brand:#0a1120;
   --pos-50:#0d2620; --pos:#34d399; --pos-700:#6ee7b7;
   --warn-50:#2a2113; --warn:#fbbf24; --warn-700:#fcd34d;
   --neg-50:#2b1416; --neg:#f87171; --neg-700:#fca5a5;
-  --c1:#818cf8; --c2:#38bdf8; --c3:#34d399; --c4:#fbbf24; --c5:#f472b6;
-  --tint-1:#1e1b3a; --tint-2:#0c2a3d; --tint-3:#0d2b22;
+  --c1:#5b9bff; --c2:#2dd4bf; --c3:#34d399; --c4:#fbbf24; --c5:#f472b6;
+  --tint-1:#152541; --tint-2:#0c2b28; --tint-3:#0d2b22;
   --tint-4:#2e2410; --tint-5:#2e1524;
   --sh-xs:0 1px 2px rgb(0 0 0 / .4);
   --sh-sm:0 1px 3px rgb(0 0 0 / .45);
@@ -171,7 +175,7 @@ body{
       color-mix(in srgb, var(--brand) 4%, transparent), transparent 56%);
   background-attachment:fixed;
   color:var(--text);
-  font:400 var(--t-md)/1.6 "Assistant", -apple-system, BlinkMacSystemFont,
+  font:400 var(--t-md)/1.6 "IBM Plex Sans Hebrew", -apple-system, BlinkMacSystemFont,
        "Segoe UI", "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif;
   -webkit-font-smoothing:antialiased;
   -moz-osx-font-smoothing:grayscale;
