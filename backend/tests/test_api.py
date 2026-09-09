@@ -617,7 +617,10 @@ def test_a_stale_response_does_not_throw_the_refresh_token_away(dashboard):
 # id was still present, and the whole suite passed — the later copy silently won.
 @pytest.mark.parametrize("marker,expected", [
     ("<body>", 1), ("</head>", 1), ("<style>", 1), ("</style>", 1),
-    ("<script>", 2), ("</script>", 2),   # the theme bootstrap and the app
+    # The theme bootstrap and the app, plus the config.js tag that tells the
+    # page which backend origin to call — that one is <script src=...>, so it
+    # closes a third time without opening a bare "<script>".
+    ("<script>", 2), ("</script>", 3),
     ('id="loginView"', 1), ('id="appView"', 1), ('id="pageBody"', 1),
 ])
 def test_the_page_is_one_document(dashboard, marker, expected):

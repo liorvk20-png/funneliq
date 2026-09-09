@@ -5,6 +5,11 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Everything Python lives under backend/; the frontend is a static page
+    # with no build of its own.
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

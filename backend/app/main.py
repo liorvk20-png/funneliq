@@ -9,9 +9,11 @@ import base64  # noqa: E402
 import io  # noqa: E402
 import json  # noqa: E402
 import logging  # noqa: E402
+import os  # noqa: E402
 import uuid  # noqa: E402
 from datetime import date  # noqa: E402
 from functools import lru_cache  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 import pandas as pd  # noqa: E402
 from fastapi import (  # noqa: E402
@@ -25,6 +27,7 @@ from fastapi import (  # noqa: E402
     UploadFile,
     status,
 )
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
@@ -40,6 +43,23 @@ from app.training import MIN_ROWS, load, predict_one, train  # noqa: E402
 app = FastAPI(title="FunnelIQ")
 
 log = logging.getLogger("funneliq")
+
+# The frontend is its own Railway service on its own domain, so every call the
+# dashboard makes is cross-origin and the browser blocks it unless we say
+# otherwise. FRONTEND_ORIGINS is a comma-separated list — production names one
+# origin, dev names the dev frontend plus whatever local server the developer
+# runs. Left unset, nothing is allowed from a browser on another origin, which
+# is the right default for a bare API.
+_origins = [o.strip() for o in os.environ.get("FRONTEND_ORIGINS", "").split(",") if o.strip()]
+if _origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_origins,
+        # No cookies: the session is a bearer token in the Authorization header.
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @app.exception_handler(Exception)
@@ -1483,6 +1503,16 @@ def meta_preview(payload: dict, token: str = Depends(get_current_user_token)):
     return result
 
 
+# The dashboard is deployed as its own Railway service out of frontend/, so on
+# Railway this directory is not in the backend's build context and the mount is
+# skipped — the API answers only /api. Running the repository from a checkout,
+# frontend/ is right there, and serving it from the same origin keeps local
+# development a single process with no CORS to configure.
+#
 # Mounted LAST on purpose: a mount at "/" catches every path the routes above
 # did not claim, so declaring it earlier would shadow the whole API.
-app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
+_frontend = Path(__file__).resolve().parent.parent.parent / "frontend"
+if _frontend.is_dir():
+    app.mount("/", StaticFiles(directory=_frontend, html=True), name="static")
+else:
+    log.info("frontend/ not found next to the backend; serving the API only")

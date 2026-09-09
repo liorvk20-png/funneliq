@@ -1,0 +1,11 @@
+# Railway hands the port in as $PORT and terminates TLS in front of us, so this
+# listens plain HTTP on whatever it is given.
+:{$PORT:8080} {
+	root * /srv
+	encode gzip
+	# The dashboard is a single page that routes in the browser; anything that
+	# is not a file on disk has to come back as index.html or a reload of a
+	# deep link 404s.
+	try_files {path} /index.html
+	file_server
+}

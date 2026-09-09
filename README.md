@@ -39,18 +39,27 @@ needed by the running service at all.
 
 ## Layout
 
+The repository is two deployable halves, one Railway service each.
+
 ```
-app/            the web service
-  main.py       routes; the static mount is declared last so it cannot shadow the API
-  auth.py       verifies JWTs against the project's public JWKS (ES256/RS256)
-  db.py         two clients: user-scoped (RLS applies) and secret (scripts only)
-  predict.py    loads the three CatBoost models once at startup
-  static/       login screen and dashboard, no build step
-analysis/       one script per work package, each reproducible on its own
-  features.py   the single feature definition; enforces the leakage rule by construction
-models/         trained artifacts, committed so a deploy need not retrain
-scripts/        CSV loader
-migrations/     schema history; 002 turns one company into an engine anyone can join,
+backend/        the API service (Railway root directory /backend)
+  app/
+    main.py     routes; the static mount is declared last so it cannot shadow the API
+    auth.py     verifies JWTs against the project's public JWKS (ES256/RS256)
+    db.py       two clients: user-scoped (RLS applies) and secret (scripts only)
+    predict.py  loads the three CatBoost models once at startup
+  analysis/     one script per work package, each reproducible on its own
+    features.py the single feature definition; enforces the leakage rule by construction
+  models/       trained artifacts, committed so a deploy need not retrain
+  scripts/      CSV loader
+  tests/        the whole suite; run from backend/
+  railway.json  build and start for the backend service
+frontend/       the dashboard service (Railway root directory /frontend)
+  index.html    login screen and dashboard, no build step
+  Dockerfile    Caddy serving the page
+  start.sh      writes config.js from API_BASE_URL at container start
+backend/migrations/
+                schema history; 002 turns one company into an engine anyone can join,
                 003 backfills workspaces for accounts that predate the trigger,
                 004 lets a company rename itself, 005 stores its own models,
                 006 stores its logo, 007 adds findings and narrative,
@@ -61,13 +70,20 @@ migrations/     schema history; 002 turns one company into an engine anyone can 
 ## Running it locally
 
 ```bash
+cd backend
 python3.13 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt          # server
 pip install -r requirements-ml.txt       # training as well
 
-cp .env.example .env                     # then fill in the two required values
+cp ../.env.example ../.env               # then fill in the two required values
 uvicorn app.main:app --reload
 ```
+
+Locally the backend still serves the dashboard itself: it looks for `frontend/`
+next to its own directory, finds it in a checkout, and mounts it at `/`, so
+there is one process on one origin and no CORS to configure. On Railway each
+half is built from its own root directory, the backend never sees `frontend/`,
+and the mount is skipped — the API answers only its own routes.
 
 `.env` needs `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. `SUPABASE_SECRET_KEY`
 is required only by the loader script; the web service runs without it, and on a
@@ -124,7 +140,7 @@ degrading into a generic tip.
 ## The interface
 
 One HTML file, no build step and no framework. Everything visual comes from the
-token block at the top of `app/static/index.html`: two themes defined as the
+token block at the top of `frontend/index.html`: two themes defined as the
 same names with different values, so no rule below that block knows which theme
 it is drawing.
 
@@ -245,6 +261,7 @@ Two scripts drive the real endpoints against the real database, the way a
 company would, and check every answer against an independent calculation:
 
 ```bash
+cd backend
 uvicorn app.main:app --port 8899          # in another terminal
 python scripts/simulate_customer_journey.py
 python scripts/simulate_edge_cases.py
@@ -519,15 +536,44 @@ came out. Package 4's hyperparameter search bought +0.0014 and says so.
 cross-validated error; scores above 80 carry the overconfidence flag Package 4
 measured. A caveat in a document nobody opens is not a caveat.
 
+## Deploying
+
+One Railway project, two environments, two services in each:
+
+| environment  | branch | service    | root directory | what it runs                          |
+| ------------ | ------ | ---------- | -------------- | ------------------------------------- |
+| `production` | `main` | `backend`  | `/backend`     | `uvicorn app.main:app`                |
+| `production` | `main` | `frontend` | `/frontend`    | Caddy serving `index.html`            |
+| `dev`        | `dev`  | `backend`  | `/backend`     | the same, against the dev Supabase    |
+| `dev`        | `dev`  | `frontend` | `/frontend`    | the same, pointed at the dev backend  |
+
+The two halves are on different domains, so two variables tie them together and
+they have to agree in each environment:
+
+- `API_BASE_URL` on **frontend** — the backend's public URL. `start.sh` writes
+  it into `config.js` at container start, and the page prefixes every `/api/`
+  call with it. Baking it into the image instead would mean one image per
+  environment.
+- `FRONTEND_ORIGINS` on **backend** — a comma-separated allowlist for CORS.
+  Unset means no browser on another origin gets an answer, which is the right
+  default for a bare API but will look like every request failing if it is
+  forgotten.
+
+`SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` belong on the backend of each
+environment, and the dev environment should point at a Supabase project of its
+own — a dev deploy writing into production data is the one mistake this split
+is meant to make impossible.
+
 ## Notes
 
-- Python 3.13 in all three places: local, CI, and Railway (`runtime.txt`).
+- Python 3.13 in all three places: local, CI, and Railway (`backend/runtime.txt`).
 - CI lints `app`, `scripts`, `analysis` and `tests`, then runs the test suite, on
   every push and pull request.
 
 ## Tests
 
 ```bash
+cd backend
 pip install -r requirements-dev.txt
 pytest tests -q
 ```

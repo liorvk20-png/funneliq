@@ -1,4 +1,4 @@
-# Lint config for CI (.github/workflows/ci.yml runs `ruff check app scripts`).
+# Lint config for CI (.github/workflows/ci.yml runs `ruff check` from backend/).
 line-length = 100
 
 [lint]

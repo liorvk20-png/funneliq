@@ -221,8 +221,8 @@ def test_the_upload_page_documents_every_column_it_requires():
     documentation and gets a rejection it cannot explain.
     """
     from pathlib import Path
-    page = (Path(__file__).resolve().parent.parent
-            / "app" / "static" / "index.html").read_text()
+    page = (Path(__file__).resolve().parent.parent.parent
+            / "frontend" / "index.html").read_text()
     docs = page.split("const COLUMN_DOCS = [")[1].split("];")[0]
     # followup_1..5 are documented as one range rather than five identical rows.
     documented = {c for c in REQUIRED_COLUMNS if not c.startswith("followup_")}
